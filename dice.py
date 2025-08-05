@@ -1,4 +1,5 @@
 import random
+from scoring import ScoreValidator
 
 class DiceSet:
     """Handle dice rolling and management"""
@@ -13,9 +14,22 @@ class DiceSet:
         return self.dice
 
     def keep_dice(self, indices):
+        """Keep dice at specified indices if the combination is valid"""
+        # Get the values of dice we want to keep
+        values_to_keep = [self.dice[i] for i in indices if 0 <= i < len(self.dice) and not self.kept_dice[i]]
+
+        # Validate the combination
+        is_valid, error_msg = ScoreValidator.is_valid_keep(values_to_keep)
+
+        if not is_valid:
+            return False, error_msg
+
+        # If valid, keep the dice
         for i in indices:
             if 0 <= i < len(self.dice):
                 self.kept_dice[i] = True
+
+        return True, "Dice kept successfully"
 
     def reset(self):
         """Reset all dice to be rollable again"""
@@ -39,6 +53,10 @@ def main():
     print("Welcome to Lange Strasse Dice Roller!")
     print("Commands: 'roll', 'keep <numbers>', 'reset', 'quit'")
     print("Example: 'keep 1 3 5' to keep dice 1, 3, and 5")
+    print("\nKeeping rules:")
+    print("- You can keep any number of 1s or 5s")
+    print("- You can keep groups of 3 or more identical dice")
+    print("- You cannot keep other combinations")
 
     while True:
         command = input("\nEnter command: ").strip().lower()
@@ -70,7 +88,7 @@ def main():
 
                 indices = [int(x) - 1 for x in parts[1:]]  # Convert to 0-based
 
-                # Validate indices
+                # Validate indices are in range and not already kept
                 valid_indices = []
                 for idx in indices:
                     if 0 <= idx < len(dice_set.dice):
@@ -81,10 +99,18 @@ def main():
                     else:
                         print(f"Invalid die number: {idx+1}")
 
-                if valid_indices:
-                    dice_set.keep_dice(valid_indices)
+                if not valid_indices:
+                    continue
+
+                # Try to keep the dice
+                success, message = dice_set.keep_dice(valid_indices)
+
+                if success:
                     print(f"Kept dice: {[i+1 for i in valid_indices]}")
                     dice_set.display()
+                else:
+                    print(f"Invalid combination: {message}")
+                    print("Try again with a valid combination.")
 
             except ValueError:
                 print("Invalid input. Use numbers only (e.g., 'keep 1 3 5')")
