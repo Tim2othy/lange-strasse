@@ -6,8 +6,12 @@ class DiceSet:
     def __init__(self, num_dice=6):
         self.dice = [0] * num_dice
         self.kept_dice = [False] * num_dice
+        self.kept_values = []  # Track values of kept dice for validation
+        # Auto-roll at start
+        self.roll()
 
     def roll(self):
+        """Roll all non-kept dice"""
         for i in range(len(self.dice)):
             if not self.kept_dice[i]:
                 self.dice[i] = random.randint(1, 6)
@@ -18,22 +22,31 @@ class DiceSet:
         # Get the values of dice we want to keep
         values_to_keep = [self.dice[i] for i in indices if 0 <= i < len(self.dice) and not self.kept_dice[i]]
 
-        # Validate the combination
-        is_valid, error_msg = ScoreValidator.is_valid_keep(values_to_keep)
+        # Validate the combination with already kept dice
+        is_valid, error_msg = ScoreValidator.is_valid_keep(values_to_keep, self.kept_values)
 
         if not is_valid:
             return False, error_msg
 
         # If valid, keep the dice
         for i in indices:
-            if 0 <= i < len(self.dice):
+            if 0 <= i < len(self.dice) and not self.kept_dice[i]:
                 self.kept_dice[i] = True
+                self.kept_values.append(self.dice[i])
+
+        # Auto-roll remaining dice
+        available = self.get_available_dice()
+        if available:
+            self.roll()
 
         return True, "Dice kept successfully"
 
     def reset(self):
         """Reset all dice to be rollable again"""
         self.kept_dice = [False] * len(self.dice)
+        self.kept_values = []
+        # Auto-roll after reset
+        self.roll()
 
     def get_available_dice(self):
         """Get indices of dice that can still be rolled"""
@@ -46,17 +59,25 @@ class DiceSet:
             status = "[KEPT]" if kept else ""
             print(f"Die {i+1}: {die} {status}")
 
+        if self.kept_values:
+            print(f"Previously kept values: {sorted(self.kept_values)}")
+
 def main():
     """Interactive command line dice rolling"""
     dice_set = DiceSet()
 
     print("Welcome to Lange Strasse Dice Roller!")
-    print("Commands: 'roll', 'keep <numbers>', 'reset', 'quit'")
+    print("Commands: 'keep <numbers>', 'reset', 'quit'")
     print("Example: 'keep 1 3 5' to keep dice 1, 3, and 5")
     print("\nKeeping rules:")
     print("- You can keep any number of 1s or 5s")
     print("- You can keep groups of 3 or more identical dice")
-    print("- You cannot keep other combinations")
+    print("- If you have 3+ of a kind kept, you can keep more of that kind")
+    print("- Dice auto-roll after keeping some")
+
+    # Show initial roll
+    dice_set.display()
+    print(f"Available dice to keep: {[i+1 for i in dice_set.get_available_dice()]}")
 
     while True:
         command = input("\nEnter command: ").strip().lower()
@@ -65,19 +86,11 @@ def main():
             print("Goodbye!")
             break
 
-        elif command == 'roll':
-            available = dice_set.get_available_dice()
-            if not available:
-                print("All dice are kept! Use 'reset' to roll all dice again.")
-                continue
-
-            dice_set.roll()
-            dice_set.display()
-            print(f"Available dice to keep: {[i+1 for i in available]}")
-
         elif command == 'reset':
             dice_set.reset()
-            print("All dice reset - ready to roll!")
+            print("All dice reset and re-rolled!")
+            dice_set.display()
+            print(f"Available dice to keep: {[i+1 for i in dice_set.get_available_dice()]}")
 
         elif command.startswith('keep'):
             try:
@@ -108,6 +121,12 @@ def main():
                 if success:
                     print(f"Kept dice: {[i+1 for i in valid_indices]}")
                     dice_set.display()
+
+                    available = dice_set.get_available_dice()
+                    if available:
+                        print(f"Available dice to keep: {[i+1 for i in available]}")
+                    else:
+                        print("All dice are kept! Use 'reset' to start over.")
                 else:
                     print(f"Invalid combination: {message}")
                     print("Try again with a valid combination.")
@@ -116,7 +135,7 @@ def main():
                 print("Invalid input. Use numbers only (e.g., 'keep 1 3 5')")
 
         else:
-            print("Unknown command. Available: 'roll', 'keep <numbers>', 'reset', 'quit'")
+            print("Unknown command. Available: 'keep <numbers>', 'reset', 'quit'")
 
 if __name__ == "__main__":
     main()
