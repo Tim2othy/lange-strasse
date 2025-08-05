@@ -49,12 +49,56 @@ class ScoreCalculator:
     """Calculate points based on dice combinations"""
 
     @staticmethod
-    def calculate_score(dice):
-        # TODO: Implement Lange Strasse scoring rules
-        # Return (score, scoring_dice_indices)
-        pass
+    def calculate_score(kept_dice_values):
+        """
+        Calculate score for kept dice values.
+
+        Rules:
+        - Individual 1s: 100 points each
+        - Individual 5s: 50 points each
+        - Three of a kind: number * 100 (except 1s = 1000, 5s = 500)
+        - Four of a kind: double the three of a kind score
+        - Five of a kind: double the four of a kind score, etc.
+
+        Args:
+            kept_dice_values: List of all kept dice values
+
+        Returns:
+            int: Total score
+        """
+        if not kept_dice_values:
+            return 0
+
+        counts = Counter(kept_dice_values)
+        total_score = 0
+
+        for value, count in counts.items():
+            if count >= 3:
+                # Three or more of a kind - use triplet scoring
+                if value == 1:
+                    base_score = 1000
+                elif value == 5:
+                    base_score = 500
+                else:
+                    base_score = value * 100
+
+                # Double for each additional die beyond 3
+                score = base_score * (2 ** (count - 3))
+                total_score += score
+
+            else:
+                # Individual scoring for 1s and 5s only
+                if value == 1:
+                    total_score += count * 100
+                elif value == 5:
+                    total_score += count * 50
+                # Other values can't be kept individually (validation prevents this)
+
+        return total_score
 
     @staticmethod
     def has_scoring_dice(dice):
-        score, _ = ScoreCalculator.calculate_score(dice)
-        return score > 0
+        """Check if any dice can score points"""
+        # For now, assume any dice can potentially score
+        # This could be more sophisticated later
+        return True

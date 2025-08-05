@@ -1,5 +1,5 @@
 import random
-from scoring import ScoreValidator
+from scoring import ScoreValidator, ScoreCalculator
 
 class DiceSet:
     """Handle dice rolling and management"""
@@ -41,6 +41,10 @@ class DiceSet:
 
         return True, "Dice kept successfully"
 
+    def get_current_score(self):
+        """Get the current score for all kept dice"""
+        return ScoreCalculator.calculate_score(self.kept_values)
+
     def reset(self):
         """Reset all dice to be rollable again"""
         self.kept_dice = [False] * len(self.dice)
@@ -61,6 +65,7 @@ class DiceSet:
 
         if self.kept_values:
             print(f"Previously kept values: {sorted(self.kept_values)}")
+            print(f"Current score: {self.get_current_score()} points")
 
 def main():
     """Interactive command line dice rolling"""
@@ -69,6 +74,11 @@ def main():
     print("Welcome to Lange Strasse Dice Roller!")
     print("Commands: 'keep <numbers>', 'reset', 'quit'")
     print("Example: 'keep 1 3 5' to keep dice 1, 3, and 5")
+    print("\nScoring rules:")
+    print("- Individual 1s: 100 points each")
+    print("- Individual 5s: 50 points each")
+    print("- Three of a kind: number × 100 (1s = 1000, 5s = 500)")
+    print("- Each additional die doubles the score")
     print("\nKeeping rules:")
     print("- You can keep any number of 1s or 5s")
     print("- You can keep groups of 3 or more identical dice")
