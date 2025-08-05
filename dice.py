@@ -7,9 +7,7 @@ class DiceSet:
         self.dice = [0] * num_dice
         self.kept_dice = [False] * num_dice
         self.kept_groups = []  # Track groups of dice kept together
-        self.accumulated_score = 0  # Track score from previous rounds
         self.game_over = False
-        self.final_score = 0
         # Auto-roll at start
         self.roll()
         # Check if game is over immediately
@@ -26,7 +24,6 @@ class DiceSet:
         """Central method to check if game should end due to no valid moves"""
         if not self.can_keep_any_dice() and not self.game_over:
             self.game_over = True
-            self.final_score = 0
             return True
         return False
 
@@ -93,49 +90,44 @@ class DiceSet:
         # Check if stopping
         if stop_after:
             self.game_over = True
-            self.final_score = self.get_current_score()
-            return True, f"Game ended! Final score: {self.final_score} points"
+            turn_score = self.get_current_score()
+            return True, f"Turn ended! Score this turn: {turn_score} points"
 
         # Check if all dice are kept
         available = self.get_available_dice()
         if not available:
-            # All 6 dice kept - add current score to accumulated and reset
-            current_round_score = ScoreCalculator.calculate_score_from_groups(self.kept_groups)
-            self.accumulated_score += current_round_score
+            # All 6 dice kept - continue turn with fresh dice
+            print(f"All 6 dice kept! Rolling again...")
             self.reset_dice_only()
-            print(f"All 6 dice kept! Continuing with {self.accumulated_score} points accumulated...")
-            return True, f"All dice used! Rolling again with {self.accumulated_score} points accumulated."
+            return True, f"All dice used! Rolling again with {self.get_current_score()} points accumulated this turn."
 
         # Auto-roll remaining dice
         self.roll()
 
         # Check if player can keep any of the new dice
         if self.check_game_over():
-            return True, "No valid moves available! You lose - final score: 0 points"
+            return True, "No valid moves available! Turn ends with 0 points"
 
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the current total score (accumulated + current round)"""
-        current_round_score = ScoreCalculator.calculate_score_from_groups(self.kept_groups)
-        return self.accumulated_score + current_round_score
+        """Get the current score for this turn"""
+        return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
 
-    def reset(self):
-        """Reset everything for a new game"""
+    def reset_for_new_turn(self):
+        """Reset for a new player's turn"""
         self.kept_dice = [False] * len(self.dice)
         self.kept_groups = []
-        self.accumulated_score = 0
         self.game_over = False
-        self.final_score = 0
-        # Auto-roll after reset
+        # Auto-roll for new turn
         self.roll()
         # Check if game is over immediately
         self.check_game_over()
 
     def reset_dice_only(self):
-        """Reset dice for a new round but keep accumulated score"""
+        """Reset dice for continuing the same turn"""
         self.kept_dice = [False] * len(self.dice)
-        self.kept_groups = []  # Clear current round groups
+        # Keep the kept_groups to maintain score
         # Auto-roll after reset
         self.roll()
         # Check if game is over immediately
@@ -148,7 +140,7 @@ class DiceSet:
     def display(self):
         """Display current dice state"""
         if self.game_over:
-            print(f"\nGAME OVER! Final score: {self.final_score} points")
+            print(f"\nTurn over! Score: 0 points (no valid moves)")
             return
 
         print("\nCurrent dice:")
@@ -157,108 +149,5 @@ class DiceSet:
             print(f"Die {i+1}: {die} {status}")
 
         if self.kept_groups:
-            print(f"Kept groups: {[sorted(group) for group in self.kept_groups]}")
-            print(f"Current score: {self.get_current_score()} points")
-
-def main():
-    """Interactive command line dice rolling"""
-    dice_set = DiceSet()
-
-    print("Welcome to Lange Strasse Dice Roller!")
-    print("Commands: 'keep <numbers>', 'keep <numbers> stop', 'reset', 'quit'")
-    print("Example: 'keep 1 3 5' to keep dice 1, 3, and 5")
-    print("Example: 'keep 1 3 stop' to keep dice 1, 3 and end the game")
-    print("\nScoring rules:")
-    print("- Individual 1s: 100 points each")
-    print("- Individual 5s: 50 points each")
-    print("- Three of a kind: number × 100 (1s = 1000, 5s = 500)")
-    print("- Each additional die doubles the score")
-    print("\nGame rules:")
-    print("- Add 'stop' to end the game and keep your score")
-    print("- Cannot stop when keeping all 6 dice")
-    print("- If no dice can be kept, you lose (score = 0)")
-    print("- If all 6 dice are kept, continue with accumulated score")
-
-    # Show initial roll
-    dice_set.display()
-    if not dice_set.game_over:
-        print(f"Available dice to keep: {[i+1 for i in dice_set.get_available_dice()]}")
-
-    while True:
-        if dice_set.game_over:
-            print("\nGame is over! Use 'reset' to start a new game or 'quit' to exit.")
-
-        command = input("\nEnter command: ").strip().lower()
-
-        if command == 'quit':
-            print("Goodbye!")
-            break
-
-        elif command == 'reset':
-            dice_set.reset()
-            print("New game started!")
-            dice_set.display()
-            if not dice_set.game_over:
-                print(f"Available dice to keep: {[i+1 for i in dice_set.get_available_dice()]}")
-
-        elif command.startswith('keep'):
-            if dice_set.game_over:
-                print("Game is over! Use 'reset' to start a new game.")
-                continue
-
-            try:
-                parts = command.split()
-                if len(parts) == 1:
-                    print("Please specify which dice to keep (e.g., 'keep 1 3 5')")
-                    continue
-
-                # Check if 'stop' is in the command
-                stop_after = 'stop' in parts
-                if stop_after:
-                    parts.remove('stop')
-
-                if len(parts) == 1:  # Only 'keep' and 'stop'
-                    print("Please specify which dice to keep before 'stop'")
-                    continue
-
-                indices = [int(x) - 1 for x in parts[1:]]  # Convert to 0-based
-
-                # Validate indices are in range and not already kept
-                valid_indices = []
-                for idx in indices:
-                    if 0 <= idx < len(dice_set.dice):
-                        if not dice_set.kept_dice[idx]:
-                            valid_indices.append(idx)
-                        else:
-                            print(f"Die {idx+1} is already kept!")
-                    else:
-                        print(f"Invalid die number: {idx+1}")
-
-                if not valid_indices:
-                    continue
-
-                # Try to keep the dice
-                success, message = dice_set.keep_dice(valid_indices, stop_after)
-
-                if success:
-                    action = "Stopped" if stop_after else "Kept"
-                    print(f"{action} dice: {[i+1 for i in valid_indices]}")
-                    dice_set.display()
-
-                    if not dice_set.game_over:
-                        available = dice_set.get_available_dice()
-                        if available:
-                            print(f"Available dice to keep: {[i+1 for i in available]}")
-                        else:
-                            print("All dice are kept!")
-                else:
-                    print(f"Error: {message}")
-
-            except ValueError:
-                print("Invalid input. Use numbers only (e.g., 'keep 1 3 5' or 'keep 1 3 stop')")
-
-        else:
-            print("Unknown command. Available: 'keep <numbers>', 'keep <numbers> stop', 'reset', 'quit'")
-
-if __name__ == "__main__":
-    main()
+            print(f"Kept groups this turn: {[sorted(group) for group in self.kept_groups]}")
+            print(f"Score this turn: {self.get_current_score()} points")
