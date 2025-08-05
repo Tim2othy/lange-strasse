@@ -12,6 +12,8 @@ class DiceSet:
         self.final_score = 0
         # Auto-roll at start
         self.roll()
+        # Check if game is over immediately
+        self.check_game_over()
 
     def roll(self):
         """Roll all non-kept dice"""
@@ -19,6 +21,14 @@ class DiceSet:
             if not self.kept_dice[i]:
                 self.dice[i] = random.randint(1, 6)
         return self.dice
+
+    def check_game_over(self):
+        """Central method to check if game should end due to no valid moves"""
+        if not self.can_keep_any_dice() and not self.game_over:
+            self.game_over = True
+            self.final_score = 0
+            return True
+        return False
 
     def can_keep_any_dice(self):
         """Check if any dice can be kept according to the rules"""
@@ -100,9 +110,7 @@ class DiceSet:
         self.roll()
 
         # Check if player can keep any of the new dice
-        if not self.can_keep_any_dice():
-            self.game_over = True
-            self.final_score = 0
+        if self.check_game_over():
             return True, "No valid moves available! You lose - final score: 0 points"
 
         return True, "Dice kept successfully"
@@ -121,6 +129,8 @@ class DiceSet:
         self.final_score = 0
         # Auto-roll after reset
         self.roll()
+        # Check if game is over immediately
+        self.check_game_over()
 
     def reset_dice_only(self):
         """Reset dice for a new round but keep accumulated score"""
@@ -128,6 +138,8 @@ class DiceSet:
         self.kept_groups = []  # Clear current round groups
         # Auto-roll after reset
         self.roll()
+        # Check if game is over immediately
+        self.check_game_over()
 
     def get_available_dice(self):
         """Get indices of dice that can still be rolled"""
