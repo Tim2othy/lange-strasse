@@ -7,6 +7,7 @@ class DiceSet:
         self.dice = [0] * num_dice
         self.kept_dice = [False] * num_dice
         self.kept_groups = []  # Track groups of dice kept together
+        self.accumulated_score = 0  # Track score from previous rounds
         self.game_over = False
         self.final_score = 0
         # Auto-roll at start
@@ -29,9 +30,6 @@ class DiceSet:
         all_kept_values = []
         for group in self.kept_groups:
             all_kept_values.extend(group)
-
-        # Check all possible combinations of available dice
-        from itertools import combinations
 
         # Check individual dice first (1s and 5s)
         for die_val in available_dice:
@@ -91,11 +89,12 @@ class DiceSet:
         # Check if all dice are kept
         available = self.get_available_dice()
         if not available:
-            # All 6 dice kept - continue with same score but reset dice
-            current_score = self.get_current_score()
+            # All 6 dice kept - add current score to accumulated and reset
+            current_round_score = ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+            self.accumulated_score += current_round_score
             self.reset_dice_only()
-            print(f"All 6 dice kept! Continuing with {current_score} points...")
-            return True, f"All dice used! Rolling again with {current_score} points accumulated."
+            print(f"All 6 dice kept! Continuing with {self.accumulated_score} points accumulated...")
+            return True, f"All dice used! Rolling again with {self.accumulated_score} points accumulated."
 
         # Auto-roll remaining dice
         self.roll()
@@ -109,24 +108,24 @@ class DiceSet:
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the current score for all kept dice"""
-        return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+        """Get the current total score (accumulated + current round)"""
+        current_round_score = ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+        return self.accumulated_score + current_round_score
 
     def reset(self):
-        """Reset all dice to be rollable again"""
+        """Reset everything for a new game"""
         self.kept_dice = [False] * len(self.dice)
         self.kept_groups = []
+        self.accumulated_score = 0
         self.game_over = False
         self.final_score = 0
         # Auto-roll after reset
         self.roll()
 
     def reset_dice_only(self):
-        """Reset dice but keep accumulated score"""
-        current_score = self.get_current_score()
+        """Reset dice for a new round but keep accumulated score"""
         self.kept_dice = [False] * len(self.dice)
-        # Keep the score by creating a dummy group
-        self.kept_groups = [[1] * (current_score // 100)]  # Temporary score tracking
+        self.kept_groups = []  # Clear current round groups
         # Auto-roll after reset
         self.roll()
 
