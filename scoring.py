@@ -49,7 +49,7 @@ class ScoreCalculator:
     """Calculate points based on dice combinations"""
 
     @staticmethod
-    def calculate_score(kept_dice_values):
+    def calculate_score_from_groups(kept_groups):
         """
         Calculate score for kept dice values.
 
@@ -61,40 +61,53 @@ class ScoreCalculator:
         - Five of a kind: double the four of a kind score, etc.
 
         Args:
-            kept_dice_values: List of all kept dice values
+            kept_groups: List of lists, each containing dice values kept together
 
         Returns:
             int: Total score
         """
-        if not kept_dice_values:
+        if not kept_groups:
             return 0
 
-        counts = Counter(kept_dice_values)
         total_score = 0
 
-        for value, count in counts.items():
-            if count >= 3:
-                # Three or more of a kind - use triplet scoring
-                if value == 1:
-                    base_score = 1000
-                elif value == 5:
-                    base_score = 500
+        for group in kept_groups:
+            if not group:
+                continue
+
+            counts = Counter(group)
+
+            for value, count in counts.items():
+                if count >= 3:
+                    # Three or more of a kind kept together - use triplet scoring
+                    if value == 1:
+                        base_score = 1000
+                    elif value == 5:
+                        base_score = 500
+                    else:
+                        base_score = value * 100
+
+                    # Double for each additional die beyond 3
+                    score = base_score * (2 ** (count - 3))
+                    total_score += score
+
                 else:
-                    base_score = value * 100
-
-                # Double for each additional die beyond 3
-                score = base_score * (2 ** (count - 3))
-                total_score += score
-
-            else:
-                # Individual scoring for 1s and 5s only
-                if value == 1:
-                    total_score += count * 100
-                elif value == 5:
-                    total_score += count * 50
-                # Other values can't be kept individually (validation prevents this)
+                    # Individual scoring for 1s and 5s only
+                    if value == 1:
+                        total_score += count * 100
+                    elif value == 5:
+                        total_score += count * 50
+                    # Other values can't be kept individually (validation prevents this)
 
         return total_score
+
+    @staticmethod
+    def calculate_score(kept_dice_values):
+        """Legacy method - assumes all dice were kept as individual groups"""
+        if not kept_dice_values:
+            return 0
+        groups = [[die] for die in kept_dice_values]
+        return ScoreCalculator.calculate_score_from_groups(groups)
 
     @staticmethod
     def has_scoring_dice(dice):

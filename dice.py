@@ -6,7 +6,7 @@ class DiceSet:
     def __init__(self, num_dice=6):
         self.dice = [0] * num_dice
         self.kept_dice = [False] * num_dice
-        self.kept_values = []  # Track values of kept dice for validation
+        self.kept_groups = []  # Track groups of dice kept together
         # Auto-roll at start
         self.roll()
 
@@ -22,17 +22,24 @@ class DiceSet:
         # Get the values of dice we want to keep
         values_to_keep = [self.dice[i] for i in indices if 0 <= i < len(self.dice) and not self.kept_dice[i]]
 
+        # Get all currently kept values for validation
+        all_kept_values = []
+        for group in self.kept_groups:
+            all_kept_values.extend(group)
+
         # Validate the combination with already kept dice
-        is_valid, error_msg = ScoreValidator.is_valid_keep(values_to_keep, self.kept_values)
+        is_valid, error_msg = ScoreValidator.is_valid_keep(values_to_keep, all_kept_values)
 
         if not is_valid:
             return False, error_msg
 
-        # If valid, keep the dice
+        # If valid, keep the dice and record the group
         for i in indices:
             if 0 <= i < len(self.dice) and not self.kept_dice[i]:
                 self.kept_dice[i] = True
-                self.kept_values.append(self.dice[i])
+
+        # Add this group to our kept groups
+        self.kept_groups.append(values_to_keep)
 
         # Auto-roll remaining dice
         available = self.get_available_dice()
@@ -43,12 +50,12 @@ class DiceSet:
 
     def get_current_score(self):
         """Get the current score for all kept dice"""
-        return ScoreCalculator.calculate_score(self.kept_values)
+        return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
 
     def reset(self):
         """Reset all dice to be rollable again"""
         self.kept_dice = [False] * len(self.dice)
-        self.kept_values = []
+        self.kept_groups = []
         # Auto-roll after reset
         self.roll()
 
@@ -63,8 +70,8 @@ class DiceSet:
             status = "[KEPT]" if kept else ""
             print(f"Die {i+1}: {die} {status}")
 
-        if self.kept_values:
-            print(f"Previously kept values: {sorted(self.kept_values)}")
+        if self.kept_groups:
+            print(f"Kept groups: {[sorted(group) for group in self.kept_groups]}")
             print(f"Current score: {self.get_current_score()} points")
 
 def main():
