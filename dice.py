@@ -202,6 +202,7 @@ class DiceSet:
             self.lange_strasse_achieved = True
             lange_strasse_just_completed = True
             print("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
+            self.turn_accumulated_score += 1100
 
         # Check minimum score requirement for stopping
         if stop_after:
@@ -221,7 +222,7 @@ class DiceSet:
             # All 6 dice kept - add current round score to accumulated and reset dice
             current_round_score = self.get_current_score()
             self.turn_accumulated_score += current_round_score
-                print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
+            print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
             self.reset_dice_only()
             return True, f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn."
 
