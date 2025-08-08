@@ -1,3 +1,4 @@
+"""dice.py hore the DiceSet class lives"""
 import random
 from scoring import ScoreValidator, ScoreCalculator
 from collections import Counter

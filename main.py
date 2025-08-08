@@ -1,3 +1,4 @@
+"""main.py"""
 from game import Player, Game
 
 def main():

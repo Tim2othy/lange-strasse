@@ -1,3 +1,4 @@
+"""scoring.py"""
 from collections import Counter
 
 class ScoreValidator:

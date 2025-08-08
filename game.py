@@ -1,3 +1,4 @@
+"""game.py where the game is on"""
 from dice import DiceSet
 
 
