@@ -52,7 +52,7 @@ class Game:
         print(f"{current_player.name}'s total score: {current_player.total_score}")
 
         # Check win conditions
-        if current_player.total_score >= 10000:
+        if current_player.total_score >= 2000: # temporarily lowered for testing
             if self.current_player_idx == 0 and not self.final_turn:
                 # Player 1 reached 10000+, Player 2 gets one more turn
                 self.final_turn = True
