@@ -53,17 +53,8 @@ At each point in time the information available to the AI is:
 ### 1.
 
 Current dice:
-Die 1: 4
-Die 2: 5 [KEPT]
-Die 3: 5 [KEPT]
-Die 4: 5 [KEPT]
-Die 5: 1
-Die 6: 2
 Kept groups: [[5, 5, 5]]
-
-Available dice to keep: [1, 5, 6]
-
-
+Available dice: [4, 1, 2]
 
 ### 2.
 
