@@ -83,7 +83,13 @@ def main():
 
                     if stop_after or game.dice_set.game_over:
                         # Turn ended
-                        turn_score = game.dice_set.get_current_score() if not game.dice_set.game_over else 0
+                        if stop_after:
+                            # Player chose to stop - use their accumulated score
+                            turn_score = game.dice_set.get_current_total_score()
+                        else:
+                            # Game over due to no valid moves - score is 0
+                            turn_score = 0
+
                         game.end_turn(turn_score)
                         if not game.game_over:
                             game.dice_set.display()

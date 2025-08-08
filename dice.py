@@ -7,6 +7,7 @@ class DiceSet:
         self.dice = [0] * num_dice
         self.kept_dice = [False] * num_dice
         self.kept_groups = []  # Track groups of dice kept together
+        self.turn_accumulated_score = 0  # Score accumulated within this turn
         self.game_over = False
         # Auto-roll at start
         self.roll()
@@ -90,16 +91,18 @@ class DiceSet:
         # Check if stopping
         if stop_after:
             self.game_over = True
-            turn_score = self.get_current_score()
+            turn_score = self.get_current_total_score()
             return True, f"Turn ended! Score this turn: {turn_score} points"
 
         # Check if all dice are kept
         available = self.get_available_dice()
         if not available:
-            # All 6 dice kept - continue turn with fresh dice
-            print(f"All 6 dice kept! Rolling again...")
+            # All 6 dice kept - add current round score to accumulated and reset dice
+            current_round_score = ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+            self.turn_accumulated_score += current_round_score
+            print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
             self.reset_dice_only()
-            return True, f"All dice used! Rolling again with {self.get_current_score()} points accumulated this turn."
+            return True, f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn."
 
         # Auto-roll remaining dice
         self.roll()
@@ -111,13 +114,18 @@ class DiceSet:
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the current score for this turn"""
+        """Get the current score for this round only"""
         return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+
+    def get_current_total_score(self):
+        """Get the total score for the entire turn (accumulated + current round)"""
+        return self.turn_accumulated_score + self.get_current_score()
 
     def reset_for_new_turn(self):
         """Reset for a new player's turn"""
         self.kept_dice = [False] * len(self.dice)
         self.kept_groups = []
+        self.turn_accumulated_score = 0  # Reset turn accumulation
         self.game_over = False
         # Auto-roll for new turn
         self.roll()
@@ -127,7 +135,7 @@ class DiceSet:
     def reset_dice_only(self):
         """Reset dice for continuing the same turn"""
         self.kept_dice = [False] * len(self.dice)
-        # Keep the kept_groups to maintain score
+        self.kept_groups = []  # Clear current round groups but keep turn_accumulated_score
         # Auto-roll after reset
         self.roll()
         # Check if game is over immediately
@@ -149,5 +157,12 @@ class DiceSet:
             print(f"Die {i+1}: {die} {status}")
 
         if self.kept_groups:
-            print(f"Kept groups this turn: {[sorted(group) for group in self.kept_groups]}")
-            print(f"Score this turn: {self.get_current_score()} points")
+            print(f"Kept groups this round: {[sorted(group) for group in self.kept_groups]}")
+            current_round_score = self.get_current_score()
+            print(f"Score this round: {current_round_score} points")
+
+        if self.turn_accumulated_score > 0:
+            print(f"Accumulated this turn: {self.turn_accumulated_score} points")
+
+        total_turn_score = self.get_current_total_score()
+        print(f"Total turn score: {total_turn_score} points")
