@@ -182,9 +182,15 @@ class DiceSet:
             kept_display = []
             for group in self.kept_groups:
                 if len(group) == 1:
+                    # Single die - just show the value
                     kept_display.append(str(group[0]))
+                elif len(group) >= 3 and len(set(group)) == 1:
+                    # Three or more of the same value - show as a group
+                    kept_display.append(f"[{', '.join(map(str, sorted(group)))}]")
                 else:
-                    kept_display.append(str(sorted(group)))
+                    # Mixed group - show individual values
+                    kept_display.extend(map(str, sorted(group)))
+
             print(f"Kept dice: {', '.join(kept_display)}")
 
         # Show available dice
@@ -195,12 +201,8 @@ class DiceSet:
             print("All dice are kept!")
 
         # Show scores
-        if self.kept_groups:
-            current_round_score = self.get_current_score()
-            print(f"Score this round: {current_round_score} points")
-
         if self.turn_accumulated_score > 0:
-            print(f"Accumulated this turn: {self.turn_accumulated_score} points")
+            print(f"Accumulated this turn: {self.get_current_score()} points")
 
         total_turn_score = self.get_current_total_score()
         print(f"Total turn score: {total_turn_score} points")

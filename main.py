@@ -68,9 +68,6 @@ def main():
                 success, message = game.dice_set.keep_dice_by_value(dice_values, stop_after)
 
                 if success:
-                    action = "Stopped" if stop_after else "Kept"
-                    print(f"{action} dice: {dice_values}")
-
                     if stop_after or game.dice_set.game_over:
                         # Turn ended
                         if stop_after:
@@ -85,6 +82,7 @@ def main():
                             game.dice_set.display()
                     else:
                         # Turn continues
+                        print()
                         game.dice_set.display()
                 else:
                     print(f"Error: {message}")
