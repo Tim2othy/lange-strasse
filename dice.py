@@ -106,8 +106,7 @@ class DiceSet:
                 values_to_keep[die_value] -= 1
                 self.kept_dice[i] = True
 
-        # Add this group to our kept groups
-        self.kept_groups.append(dice_values_list)
+        self._merge_kept_dice(dice_values_list)
 
         # Check if stopping
         if stop_after:
@@ -135,8 +134,34 @@ class DiceSet:
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the current score for this round only"""
+        """Get the current score for this round only - preserving group structure"""
         return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+
+    def _merge_kept_dice(self, new_dice_values):
+        """Add new dice values, only merging when it creates a scoring advantage"""
+        new_counts = Counter(new_dice_values)
+
+        for value, new_count in new_counts.items():
+            # Check if we should merge with existing groups of the same value
+            merged = False
+
+            # Only merge if it would create/extend a triplet or better
+            for i, group in enumerate(self.kept_groups):
+                if (len(set(group)) == 1 and group[0] == value and
+                    len(group) >= 3):  # Only merge with existing triplets+
+                    self.kept_groups[i].extend([value] * new_count)
+                    merged = True
+                    break
+
+            if not merged:
+                # Check if the new dice form a triplet by themselves
+                if new_count >= 3:
+                    # Keep as a group
+                    self.kept_groups.append([value] * new_count)
+                else:
+                    # Keep individually (important for 1s and 5s kept separately)
+                    for _ in range(new_count):
+                        self.kept_groups.append([value])
 
     def get_current_total_score(self):
         """Get the total score for the entire turn (accumulated + current round)"""
