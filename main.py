@@ -68,13 +68,18 @@ def main():
                 success, message = game.dice_set.keep_dice_by_value(dice_values, stop_after)
 
                 if success:
-                    if stop_after or game.dice_set.game_over:
-                        # Turn ended
+                    # Check if Lange Strasse was achieved
+                    if message == "LANGE_STRASSE":
+                        game.handle_lange_strasse()
+                        # Lange Strasse automatically ends the turn with 1250 points
+                        game.end_turn(1250)
+                        if not game.game_over:
+                            game.dice_set.display()
+                    elif stop_after or game.dice_set.game_over:
+                        # Normal turn ending
                         if stop_after:
-                            # Player chose to stop - use their accumulated score
                             turn_score = game.dice_set.get_current_total_score()
                         else:
-                            # Game over due to no valid moves - score is 0
                             turn_score = 0
 
                         game.end_turn(turn_score)

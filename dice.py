@@ -10,6 +10,7 @@ class DiceSet:
         self.kept_groups = []  # Track groups of dice kept together
         self.turn_accumulated_score = 0  # Score accumulated within this turn
         self.game_over = False
+        self.lange_strasse_achieved = False  # Track if Lange Strasse was achieved this turn
         # Auto-roll at start
         self.roll()
         # Check if game is over immediately
@@ -61,6 +62,16 @@ class DiceSet:
 
         return False
 
+    def check_lange_strasse(self):
+        """Check if all dice 1-6 have been kept (Lange Strasse)"""
+        all_kept_values = []
+        for group in self.kept_groups:
+            all_kept_values.extend(group)
+
+        # Check if we have at least one of each value 1-6
+        unique_values = set(all_kept_values)
+        return unique_values == {1, 2, 3, 4, 5, 6}
+
     def keep_dice_by_value(self, dice_values, stop_after=False):
         """Keep dice by their face values (e.g., keep two 5s, one 1)"""
         # Convert dice_values to counts
@@ -95,28 +106,26 @@ class DiceSet:
         if not is_valid:
             return False, error_msg
 
-        # Check minimum score requirement for stopping
-        if stop_after:
-            # Calculate what the score would be for just this dice set
-            temp_groups = self.kept_groups.copy()
-            temp_groups.append(dice_values_list)
-            current_set_score = ScoreCalculator.calculate_score_from_groups(temp_groups)
-
-            if current_set_score < 300:
-                return False, f"Cannot stop with less than 300 points from current dice set. Current set would score {current_set_score} points."
-
         # Keep the dice (find indices and mark them as kept)
-        indices_to_keep = []
-        temp_available_counts = available_counts.copy()
-
         for i in available_indices:
             die_value = self.dice[i]
             if values_to_keep[die_value] > 0:
-                indices_to_keep.append(i)
                 values_to_keep[die_value] -= 1
                 self.kept_dice[i] = True
 
         self._merge_kept_dice(dice_values_list)
+
+        # Check for Lange Strasse after keeping dice
+        if self.check_lange_strasse() and not self.lange_strasse_achieved:
+            self.lange_strasse_achieved = True
+            print("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
+            return True, "LANGE_STRASSE"  # Special return value
+
+        # Check minimum score requirement for stopping
+        if stop_after:
+            current_set_score = self.get_current_score()
+            if current_set_score < 300:
+                return False, f"Cannot stop with less than 300 points from current dice set. Current set would score {current_set_score} points."
 
         # Check if stopping
         if stop_after:
@@ -144,7 +153,9 @@ class DiceSet:
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the current score for this round only - preserving group structure"""
+        """Get the current score for this round only"""
+        if self.lange_strasse_achieved:
+            return 1250  # Lange Strasse overrides other scoring
         return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
 
     def _merge_kept_dice(self, new_dice_values):
@@ -181,8 +192,9 @@ class DiceSet:
         """Reset for a new player's turn"""
         self.kept_dice = [False] * len(self.dice)
         self.kept_groups = []
-        self.turn_accumulated_score = 0  # Reset turn accumulation
+        self.turn_accumulated_score = 0
         self.game_over = False
+        self.lange_strasse_achieved = False  # Reset for new turn
         # Auto-roll for new turn
         self.roll()
         # Check if game is over immediately
@@ -191,7 +203,8 @@ class DiceSet:
     def reset_dice_only(self):
         """Reset dice for continuing the same turn"""
         self.kept_dice = [False] * len(self.dice)
-        self.kept_groups = []  # Clear current round groups but keep turn_accumulated_score
+        self.kept_groups = []
+        # Keep lange_strasse_achieved and turn_accumulated_score
         # Auto-roll after reset
         self.roll()
         # Check if game is over immediately

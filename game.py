@@ -6,6 +6,15 @@ class Player:
     def __init__(self, name):
         self.name = name
         self.total_score = 0
+        self.money = 0  # Money in cents
+
+    def add_money(self, cents):
+        """Add money (can be negative for losses)"""
+        self.money += cents
+        if cents > 0:
+            print(f"💰 {self.name} gains {cents}¢!")
+        else:
+            print(f"💸 {self.name} loses {abs(cents)}¢!")
 
 
 class Game:
@@ -23,6 +32,15 @@ class Game:
 
     def switch_player(self):
         self.current_player_idx = (self.current_player_idx + 1) % 2
+
+    def handle_lange_strasse(self):
+        """Handle Lange Strasse money distribution"""
+        current_player = self.get_current_player()
+        other_player = self.players[1 - self.current_player_idx]
+
+        # Current player gains 50¢, other player loses 50¢
+        current_player.add_money(50)
+        other_player.add_money(-50)
 
     def end_turn(self, turn_score):
         """End current player's turn and add score"""
@@ -55,22 +73,29 @@ class Game:
         self.start_new_turn()
 
     def check_winner(self):
-        """Determine the winner"""
+        """Determine the winner and handle money"""
         player1, player2 = self.players
 
         if player1.total_score > player2.total_score:
             self.winner = player1
+            loser = player2
         elif player2.total_score > player1.total_score:
             self.winner = player2
+            loser = player1
         else:
             # Tie - player who reached 10000 first wins (Player 1)
             self.winner = player1
+            loser = player2
+
+        # Money distribution for winning/losing
+        self.winner.add_money(50)
+        loser.add_money(-50)
 
         self.game_over = True
         print(f"\n🎉 GAME OVER! {self.winner.name} wins! 🎉")
         print(f"Final scores:")
-        print(f"Player 1: {player1.total_score} points")
-        print(f"Player 2: {player2.total_score} points")
+        print(f"Player 1: {player1.total_score} points (Money: {player1.money}¢)")
+        print(f"Player 2: {player2.total_score} points (Money: {player2.money}¢)")
 
     def start_new_turn(self):
         """Start a new turn for the current player"""
