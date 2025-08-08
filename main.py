@@ -1,13 +1,14 @@
 from game import Player, Game
 
-
 def main():
     """Main game loop for 2-player Lange Strasse"""
     game = Game()
 
     print("🎲 Welcome to 2-Player Lange Strasse! 🎲")
     print("Goal: First to 10,000 points wins!")
-    print("Commands: 'keep <numbers>', 'keep <numbers> stop', 'quit'")
+    print("Commands: 'keep <values>', 'keep <values> stop', 'quit'")
+    print("Example: 'keep 1 5 5' to keep one 1 and two 5s")
+    print("Example: 'keep 1 1 1 stop' to keep three 1s and end turn")
     print("\nScoring rules:")
     print("- Individual 1s: 100 points each")
     print("- Individual 5s: 50 points each")
@@ -22,8 +23,6 @@ def main():
     # Start first turn
     game.start_new_turn()
     game.dice_set.display()
-    if not game.dice_set.game_over:
-        print(f"Available dice to keep: {[i+1 for i in game.dice_set.get_available_dice()]}")
 
     while not game.game_over:
         if game.dice_set.game_over:
@@ -31,8 +30,6 @@ def main():
             game.end_turn(0)
             if not game.game_over:
                 game.dice_set.display()
-                if not game.dice_set.game_over:
-                    print(f"Available dice to keep: {[i+1 for i in game.dice_set.get_available_dice()]}")
             continue
 
         current_player = game.get_current_player()
@@ -46,7 +43,7 @@ def main():
             try:
                 parts = command.split()
                 if len(parts) == 1:
-                    print("Please specify which dice to keep (e.g., 'keep 1 3 5')")
+                    print("Please specify which dice values to keep (e.g., 'keep 1 5 5')")
                     continue
 
                 # Check if 'stop' is in the command
@@ -55,31 +52,24 @@ def main():
                     parts.remove('stop')
 
                 if len(parts) == 1:  # Only 'keep' and 'stop'
-                    print("Please specify which dice to keep before 'stop'")
+                    print("Please specify which dice values to keep before 'stop'")
                     continue
 
-                indices = [int(x) - 1 for x in parts[1:]]  # Convert to 0-based
+                # Convert to dice values
+                dice_values = [int(x) for x in parts[1:]]
 
-                # Validate indices are in range and not already kept
-                valid_indices = []
-                for idx in indices:
-                    if 0 <= idx < len(game.dice_set.dice):
-                        if not game.dice_set.kept_dice[idx]:
-                            valid_indices.append(idx)
-                        else:
-                            print(f"Die {idx+1} is already kept!")
-                    else:
-                        print(f"Invalid die number: {idx+1}")
-
-                if not valid_indices:
-                    continue
+                # Validate dice values are 1-6
+                for val in dice_values:
+                    if val < 1 or val > 6:
+                        print(f"Invalid dice value: {val}. Must be between 1 and 6.")
+                        continue
 
                 # Try to keep the dice
-                success, message = game.dice_set.keep_dice(valid_indices, stop_after)
+                success, message = game.dice_set.keep_dice_by_value(dice_values, stop_after)
 
                 if success:
                     action = "Stopped" if stop_after else "Kept"
-                    print(f"{action} dice: {[i+1 for i in valid_indices]}")
+                    print(f"{action} dice: {dice_values}")
 
                     if stop_after or game.dice_set.game_over:
                         # Turn ended
@@ -93,25 +83,17 @@ def main():
                         game.end_turn(turn_score)
                         if not game.game_over:
                             game.dice_set.display()
-                            if not game.dice_set.game_over:
-                                print(f"Available dice to keep: {[i+1 for i in game.dice_set.get_available_dice()]}")
                     else:
                         # Turn continues
                         game.dice_set.display()
-                        if not game.dice_set.game_over:
-                            available = game.dice_set.get_available_dice()
-                            if available:
-                                print(f"Available dice to keep: {[i+1 for i in available]}")
-                            else:
-                                print("All dice are kept!")
                 else:
                     print(f"Error: {message}")
 
             except ValueError:
-                print("Invalid input. Use numbers only (e.g., 'keep 1 3 5' or 'keep 1 3 stop')")
+                print("Invalid input. Use dice values only (e.g., 'keep 1 5 5' or 'keep 1 1 1 stop')")
 
         else:
-            print("Unknown command. Available: 'keep <numbers>', 'keep <numbers> stop', 'quit'")
+            print("Unknown command. Available: 'keep <values>', 'keep <values> stop', 'quit'")
 
 if __name__ == "__main__":
     main()

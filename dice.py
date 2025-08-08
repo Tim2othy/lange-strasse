@@ -1,5 +1,6 @@
 import random
 from scoring import ScoreValidator, ScoreCalculator
+from collections import Counter
 
 class DiceSet:
     """Handle dice rolling and management"""
@@ -60,14 +61,25 @@ class DiceSet:
 
         return False
 
-    def keep_dice(self, indices, stop_after=False):
-        """Keep dice at specified indices if the combination is valid"""
-        # Check if trying to stop with all 6 dice
-        if stop_after and len(indices) + sum(self.kept_dice) == 6:
+    def keep_dice_by_value(self, dice_values, stop_after=False):
+        """Keep dice by their face values (e.g., keep two 5s, one 1)"""
+        # Convert dice_values to counts
+        values_to_keep = Counter(dice_values)
+
+        # Check if we can keep all 6 dice with this selection
+        total_kept_after = sum(self.kept_dice) + len(dice_values)
+        if stop_after and total_kept_after == 6:
             return False, "Cannot stop when keeping all 6 dice. Must keep 5 or fewer."
 
-        # Get the values of dice we want to keep
-        values_to_keep = [self.dice[i] for i in indices if 0 <= i < len(self.dice) and not self.kept_dice[i]]
+        # Get available dice and their counts
+        available_indices = self.get_available_dice()
+        available_dice = [self.dice[i] for i in available_indices]
+        available_counts = Counter(available_dice)
+
+        # Check if we have enough of each requested value
+        for value, count in values_to_keep.items():
+            if available_counts[value] < count:
+                return False, f"Only {available_counts[value]} dice with value {value} available, but {count} requested."
 
         # Get all currently kept values for validation
         all_kept_values = []
@@ -75,18 +87,27 @@ class DiceSet:
             all_kept_values.extend(group)
 
         # Validate the combination with already kept dice
-        is_valid, error_msg = ScoreValidator.is_valid_keep(values_to_keep, all_kept_values)
+        dice_values_list = []
+        for value, count in values_to_keep.items():
+            dice_values_list.extend([value] * count)
 
+        is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
         if not is_valid:
             return False, error_msg
 
-        # If valid, keep the dice and record the group
-        for i in indices:
-            if 0 <= i < len(self.dice) and not self.kept_dice[i]:
+        # Keep the dice (find indices and mark them as kept)
+        indices_to_keep = []
+        temp_available_counts = available_counts.copy()
+
+        for i in available_indices:
+            die_value = self.dice[i]
+            if values_to_keep[die_value] > 0:
+                indices_to_keep.append(i)
+                values_to_keep[die_value] -= 1
                 self.kept_dice[i] = True
 
         # Add this group to our kept groups
-        self.kept_groups.append(values_to_keep)
+        self.kept_groups.append(dice_values_list)
 
         # Check if stopping
         if stop_after:
@@ -145,19 +166,36 @@ class DiceSet:
         """Get indices of dice that can still be rolled"""
         return [i for i, kept in enumerate(self.kept_dice) if not kept]
 
+    def get_available_dice_values(self):
+        """Get the values of dice that can still be rolled"""
+        available_indices = self.get_available_dice()
+        return [self.dice[i] for i in available_indices]
+
     def display(self):
-        """Display current dice state"""
+        """Display current dice state in a cleaner format"""
         if self.game_over:
             print(f"\nTurn over! Score: 0 points (no valid moves)")
             return
 
-        print("\nCurrent dice:")
-        for i, (die, kept) in enumerate(zip(self.dice, self.kept_dice)):
-            status = "[KEPT]" if kept else ""
-            print(f"Die {i+1}: {die} {status}")
-
+        # Show kept dice groups
         if self.kept_groups:
-            print(f"Kept groups this round: {[sorted(group) for group in self.kept_groups]}")
+            kept_display = []
+            for group in self.kept_groups:
+                if len(group) == 1:
+                    kept_display.append(str(group[0]))
+                else:
+                    kept_display.append(str(sorted(group)))
+            print(f"Kept dice: {', '.join(kept_display)}")
+
+        # Show available dice
+        available_values = self.get_available_dice_values()
+        if available_values:
+            print(f"Available dice: {', '.join(map(str, sorted(available_values)))}")
+        else:
+            print("All dice are kept!")
+
+        # Show scores
+        if self.kept_groups:
             current_round_score = self.get_current_score()
             print(f"Score this round: {current_round_score} points")
 
@@ -166,3 +204,9 @@ class DiceSet:
 
         total_turn_score = self.get_current_total_score()
         print(f"Total turn score: {total_turn_score} points")
+
+    # Keep old method for backward compatibility, but deprecate it
+    def keep_dice(self, indices, stop_after=False):
+        """Legacy method - converts indices to values and calls new method"""
+        dice_values = [self.dice[i] for i in indices if 0 <= i < len(self.dice) and not self.kept_dice[i]]
+        return self.keep_dice_by_value(dice_values, stop_after)
