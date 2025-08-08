@@ -36,11 +36,11 @@ class NNStateExtractor:
         """Extract essential state information for NN"""
         dice_set = game.dice_set
 
-        # 1. Available dice (0 for kept positions)
-        available_dice = [0] * 6
-        available_indices = dice_set.get_available_dice()
-        for idx in available_indices:
-            available_dice[idx] = dice_set.dice[idx]
+        # Count available dice by value
+        available_dice_counts = [0] * 6
+        avail_d_values = dice_set.get_available_dice_values()
+        for i in avail_d_values:
+            available_dice_counts[i - 1] += 1
 
         # Count kept dice by value
         kept_dice_counts = [0] * 6  # Index 0-5 for values 1-6
