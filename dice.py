@@ -44,6 +44,10 @@ class DiceSet:
         """Central method to check if game should end due to no valid moves"""
         if not self.can_keep_any_dice() and not self.game_over:
             self.game_over = True
+            # Check if this is a Totale (no dice kept at all)
+            if len(self.kept_groups) == 0:
+                print("💀 TOTALE! No dice can be kept! 💀")
+                return "TOTALE"
             return True
         return False
 
@@ -88,6 +92,36 @@ class DiceSet:
         # Check if we have at least one of each value 1-6
         unique_values = set(all_kept_values)
         return unique_values == {1, 2, 3, 4, 5, 6}
+
+    def check_talheim(self):
+        """Check if we have 3 pairs (Talheim) - must be exactly 6 dice with 3 pairs"""
+        all_kept_values = []
+        for group in self.kept_groups:
+            all_kept_values.extend(group)
+
+        if len(all_kept_values) != 6:
+            return False, 0
+
+        # Count occurrences of each value
+        counts = Counter(all_kept_values)
+
+        # Check if we have exactly 3 pairs (each value appears exactly twice)
+        if len(counts) != 3 or not all(count == 2 for count in counts.values()):
+            return False, 0
+
+        # Check if pairs are consecutive
+        values = sorted(counts.keys())
+        is_consecutive = (values[1] == values[0] + 1 and values[2] == values[1] + 1)
+
+        if is_consecutive:
+            return True, 1000  # Consecutive pairs
+        else:
+            return True, 500   # Non-consecutive pairs
+
+    def check_totale(self):
+        """Check if this is a Totale (no dice kept at start of turn)"""
+        return len(self.kept_groups) == 0 and not self.can_keep_any_dice()
+
 
     def keep_dice_by_value(self, dice_values, stop_after=False):
         """Keep dice by their face values (e.g., keep two 5s, one 1)"""

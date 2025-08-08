@@ -43,6 +43,15 @@ class Game:
         current_player.add_money(50)
         other_player.add_money(-50)
 
+    def handle_totale(self):
+        """Handle Totale money penalty"""
+        current_player = self.get_current_player()
+        other_player = self.players[1 - self.current_player_idx]
+
+        # Current player loses 50¢, other player gains 50¢
+        current_player.add_money(-50)
+        other_player.add_money(50)
+
     def end_turn(self, turn_score):
         """End current player's turn and add score"""
         current_player = self.get_current_player()
@@ -107,3 +116,10 @@ class Game:
 
         if self.final_turn and self.current_player_idx == 1:
             print("⚡ FINAL TURN! Last chance to overtake! ⚡")
+
+        # Check for Totale at start of turn
+        if self.dice_set.check_totale():
+            print("💀 TOTALE! No dice can be kept at start of turn! 💀")
+            self.handle_totale()
+            self.end_turn(0)
+            return
