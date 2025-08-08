@@ -26,8 +26,11 @@ def main():
     game.dice_set.display()
 
     while not game.game_over:
-        if game.dice_set.game_over:
-            # Current turn ended with 0 points
+        game_over_result = game.dice_set.check_game_over()
+        if game_over_result:
+            # Current turn ended
+            if game_over_result == "TOTALE":
+                game.handle_totale()
             game.end_turn(0)
             if not game.game_over:
                 game.dice_set.display()
@@ -66,16 +69,24 @@ def main():
                         continue
 
                 # Try to keep the dice
+                was_lange_strasse_achieved = game.dice_set.lange_strasse_achieved
                 success, message = game.dice_set.keep_dice_by_value(dice_values, stop_after)
 
                 if success:
-                    # Check if Lange Strasse was achieved
-                    if message == "LANGE_STRASSE":
+                    # Check if Lange Strasse was just completed
+                    if game.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
                         game.handle_lange_strasse()
-                        # Lange Strasse automatically ends the turn with 1250 points
-                        game.end_turn(1250)
+
+                    # Check for special combinations
+                    if message.startswith("TALHEIM_"):
+                        talheim_score = int(message.split("_")[1])
+                        game.end_turn(talheim_score)
                         if not game.game_over:
                             game.dice_set.display()
+                    elif message.startswith("All dice used!"):
+                        # This handles both normal "all 6 dice" and Lange Strasse cases
+                        print()  # Add spacing
+                        game.dice_set.display()
                     elif stop_after or game.dice_set.game_over:
                         # Normal turn ending
                         if stop_after:

@@ -148,26 +148,39 @@ class DiceSet:
         for group in self.kept_groups:
             all_kept_values.extend(group)
 
-        # Check if this would complete a Lange Strasse
-        temp_kept_values = all_kept_values + dice_values
-        if set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
-            # This is part of a Lange Strasse - always valid
-            pass
-        else:
-            # Regular validation for non-Lange Strasse combinations
-            dice_values_list = []
-            for value, count in values_to_keep.items():
-                dice_values_list.extend([value] * count)
-
-            is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
-            if not is_valid:
-                return False, error_msg
-
-        # Keep the dice (find indices and mark them as kept)
         dice_values_list = []
         for value, count in values_to_keep.items():
             dice_values_list.extend([value] * count)
 
+        # Check for special combinations first
+        temp_kept_values = all_kept_values + dice_values_list
+
+        # Check if this would be Talheim (3 pairs with exactly 6 dice)
+        if len(temp_kept_values) == 6:
+            temp_counts = Counter(temp_kept_values)
+            if len(temp_counts) == 3 and all(count == 2 for count in temp_counts.values()):
+                # This is Talheim - always valid
+                pass
+            elif set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
+                # This is Lange Strasse - always valid
+                pass
+            else:
+                # Regular validation
+                is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
+                if not is_valid:
+                    return False, error_msg
+        else:
+            # Check if this would complete a Lange Strasse
+            if set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
+                # This is part of a Lange Strasse - always valid
+                pass
+            else:
+                # Regular validation for non-special combinations
+                is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
+                if not is_valid:
+                    return False, error_msg
+
+        # Keep the dice (find indices and mark them as kept)
         for i in available_indices:
             die_value = self.dice[i]
             if values_to_keep[die_value] > 0:
@@ -176,11 +189,19 @@ class DiceSet:
 
         self._merge_kept_dice(dice_values_list)
 
-        # Check for Lange Strasse after keeping dice
+        # Check for Talheim first (takes priority)
+        is_talheim, talheim_score = self.check_talheim()
+        if is_talheim:
+            self.game_over = True
+            print(f"🎯 TALHEIM! Three pairs worth {talheim_score} points! 🎯")
+            return True, f"TALHEIM_{talheim_score}"
+
+        # Check for Lange Strasse
+        lange_strasse_just_completed = False
         if self.check_lange_strasse() and not self.lange_strasse_achieved:
             self.lange_strasse_achieved = True
+            lange_strasse_just_completed = True
             print("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
-            return True, "LANGE_STRASSE"  # Special return value
 
         # Check minimum score requirement for stopping
         if stop_after:
@@ -198,9 +219,9 @@ class DiceSet:
         available = self.get_available_dice()
         if not available:
             # All 6 dice kept - add current round score to accumulated and reset dice
-            current_round_score = ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+            current_round_score = self.get_current_score()
             self.turn_accumulated_score += current_round_score
-            print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
+                print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
             self.reset_dice_only()
             return True, f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn."
 
@@ -215,8 +236,12 @@ class DiceSet:
 
     def get_current_score(self):
         """Get the current score for this round only"""
-        if self.lange_strasse_achieved:
-            return 1250  # Lange Strasse overrides other scoring
+
+        # Check for Talheim first
+        is_talheim, talheim_score = self.check_talheim()
+        if is_talheim:
+            return talheim_score
+
         return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
 
     def _merge_kept_dice(self, new_dice_values):
