@@ -8,10 +8,11 @@ class DiceSet:
     def __init__(self, num_dice=6):
         self.dice = [0] * num_dice
         self.kept_dice = [False] * num_dice
-        self.kept_groups = []  # Track groups of dice kept together
-        self.turn_accumulated_score = 0  # Score accumulated within this turn
+        self.kept_groups = []
+        self.turn_accumulated_score = 0
         self.game_over = False
-        self.lange_strasse_achieved = False  # Track if Lange Strasse was achieved this turn
+        self.lange_strasse_achieved = False
+        self.debug_next_roll = None  # For testing - force next dice values
         # Auto-roll at start
         self.roll()
         # Check if game is over immediately
@@ -19,10 +20,25 @@ class DiceSet:
 
     def roll(self):
         """Roll all non-kept dice"""
-        for i in range(len(self.dice)):
-            if not self.kept_dice[i]:
-                self.dice[i] = random.randint(1, 6)
+        if self.debug_next_roll:
+            # Use forced values for debugging
+            available_indices = self.get_available_dice()
+            for i, idx in enumerate(available_indices):
+                if i < len(self.debug_next_roll):
+                    self.dice[idx] = self.debug_next_roll[i]
+                else:
+                    self.dice[idx] = random.randint(1, 6)
+            self.debug_next_roll = None  # Clear after use
+        else:
+            # Normal random roll
+            for i in range(len(self.dice)):
+                if not self.kept_dice[i]:
+                    self.dice[i] = random.randint(1, 6)
         return self.dice
+
+    def force_next_roll(self, values):
+        """Debug: Force the next roll to have specific values"""
+        self.debug_next_roll = values
 
     def check_game_over(self):
         """Central method to check if game should end due to no valid moves"""

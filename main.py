@@ -96,6 +96,21 @@ def main():
             except ValueError:
                 print("Invalid input. Use dice values only (e.g., 'keep 1 5 5' or 'keep 1 1 1 stop')")
 
+        elif command.startswith('force'):
+            # Debug command: force next dice roll
+            try:
+                parts = command.split()
+                if len(parts) > 1:
+                    values = [int(x) for x in parts[1:]]
+                    game.dice_set.force_next_roll(values)
+                    game.dice_set.roll()
+                    print("Debug: Forced dice roll")
+                    game.dice_set.display()
+                else:
+                    print("Usage: force 1 2 3 4 5 6")
+            except ValueError:
+                print("Invalid values for force command")
+
         else:
             print("Unknown command. Available: 'keep <values>', 'keep <values> stop', 'quit'")
 
