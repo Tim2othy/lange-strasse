@@ -114,16 +114,26 @@ class DiceSet:
         for group in self.kept_groups:
             all_kept_values.extend(group)
 
-        # Validate the combination with already kept dice
+        # Check if this would complete a Lange Strasse
+        temp_kept_values = all_kept_values + dice_values
+        if set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
+            # This is part of a Lange Strasse - always valid
+            pass
+        else:
+            # Regular validation for non-Lange Strasse combinations
+            dice_values_list = []
+            for value, count in values_to_keep.items():
+                dice_values_list.extend([value] * count)
+
+            is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
+            if not is_valid:
+                return False, error_msg
+
+        # Keep the dice (find indices and mark them as kept)
         dice_values_list = []
         for value, count in values_to_keep.items():
             dice_values_list.extend([value] * count)
 
-        is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
-        if not is_valid:
-            return False, error_msg
-
-        # Keep the dice (find indices and mark them as kept)
         for i in available_indices:
             die_value = self.dice[i]
             if values_to_keep[die_value] > 0:
