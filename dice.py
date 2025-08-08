@@ -95,6 +95,16 @@ class DiceSet:
         if not is_valid:
             return False, error_msg
 
+        # Check minimum score requirement for stopping
+        if stop_after:
+            # Calculate what the score would be for just this dice set
+            temp_groups = self.kept_groups.copy()
+            temp_groups.append(dice_values_list)
+            current_set_score = ScoreCalculator.calculate_score_from_groups(temp_groups)
+
+            if current_set_score < 300:
+                return False, f"Cannot stop with less than 300 points from current dice set. Current set would score {current_set_score} points."
+
         # Keep the dice (find indices and mark them as kept)
         indices_to_keep = []
         temp_available_counts = available_counts.copy()
