@@ -1,11 +1,39 @@
 """main.py"""
 from game import Player, Game
+from ai_player import AIPlayer, create_mixed_game
 
 def main():
     """Main game loop for 3-player Lange Strasse"""
-    game = Game()
-
     print("🎲 Welcome to 3-Player Lange Strasse! 🎲")
+    print("Choose game mode:")
+    print("1. Human vs Human vs Human")
+    print("2. Human vs AI vs AI")
+    print("3. Human vs Human vs AI")
+    print("4. AI vs AI vs AI (watch mode)")
+
+    while True:
+        try:
+            choice = int(input("Enter choice (1-4): "))
+            if 1 <= choice <= 4:
+                break
+            else:
+                print("Please enter 1, 2, 3, or 4")
+        except ValueError:
+            print("Please enter a valid number")
+
+    # Create game based on choice
+    if choice == 1:
+        game = Game()  # All human players
+    elif choice == 2:
+        game = Game()
+        game.players[1] = AIPlayer("AI Player 2")
+        game.players[2] = AIPlayer("AI Player 3")
+    elif choice == 3:
+        game = Game()
+        game.players[2] = AIPlayer("AI Player 3")
+    elif choice == 4:
+        game = create_mixed_game(3)  # All AI players
+
     print("Goal: First to 10,000 points wins!")
     print("Commands: 'keep <values>', 'keep <values> stop', 'quit'")
     print("Example: 'keep 1 5 5' to keep one 1 and two 5s")
@@ -41,6 +69,55 @@ def main():
             continue
 
         current_player = game.get_current_player()
+
+        # Check if current player is AI
+        if hasattr(current_player, 'is_ai') and current_player.is_ai:
+            # AI player's turn
+            action = current_player.choose_action(game)
+            if action is None:
+                print(f"{current_player.name} has no valid moves!")
+                continue
+
+            print(f"\n{current_player.name} chooses: {action}")
+            explanation = current_player.get_explanation(game, action)
+            print(explanation)
+
+            # Execute AI action
+            success, message = game.dice_set.keep_dice_by_value(action.dice_to_keep, action.stop_after)
+
+            if success:
+                # Handle the result same as human player
+                was_lange_strasse_achieved = game.dice_set.lange_strasse_achieved
+
+                if game.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
+                    game.handle_lange_strasse()
+
+                if message.startswith("TALHEIM_"):
+                    talheim_score = int(message.split("_")[1])
+                    game.end_turn(talheim_score)
+                    if not game.game_over:
+                        game.dice_set.display()
+                elif message.startswith("All dice used!"):
+                    print()
+                    game.dice_set.display()
+                elif action.stop_after or game.dice_set.game_over:
+                    if action.stop_after:
+                        turn_score = game.dice_set.get_current_total_score()
+                    else:
+                        turn_score = 0
+
+                    game.end_turn(turn_score)
+                    if not game.game_over:
+                        game.dice_set.display()
+                else:
+                    print()
+                    game.dice_set.display()
+            else:
+                print(f"AI Error: {message}")
+
+            continue
+
+        # Human player's turn
         command = input(f"\n{current_player.name}, enter command: ").strip().lower()
 
         if command == 'quit':
@@ -126,8 +203,20 @@ def main():
             except ValueError:
                 print("Invalid values for force command")
 
+        elif command == 'hint' and hasattr(current_player, 'is_ai') and not current_player.is_ai:
+            # Give AI hint to human player
+            from ai_evaluator import SimpleAI
+            temp_ai = SimpleAI()
+            suggested_action = temp_ai.choose_action(game)
+            if suggested_action:
+                explanation = temp_ai.get_action_explanation(game, suggested_action)
+                print(f"AI suggests: {suggested_action}")
+                print(explanation)
+            else:
+                print("No valid moves available")
+
         else:
-            print("Unknown command. Available: 'keep <values>', 'keep <values> stop', 'quit'")
+            print("Unknown command. Available: 'keep <values>', 'keep <values> stop', 'hint', 'quit'")
 
 if __name__ == "__main__":
     main()
