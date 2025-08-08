@@ -2,10 +2,10 @@
 from game import Player, Game
 
 def main():
-    """Main game loop for 2-player Lange Strasse"""
+    """Main game loop for 3-player Lange Strasse"""
     game = Game()
 
-    print("🎲 Welcome to 2-Player Lange Strasse! 🎲")
+    print("🎲 Welcome to 3-Player Lange Strasse! 🎲")
     print("Goal: First to 10,000 points wins!")
     print("Commands: 'keep <values>', 'keep <values> stop', 'quit'")
     print("Example: 'keep 1 5 5' to keep one 1 and two 5s")
@@ -20,6 +20,10 @@ def main():
     print("- Cannot stop when keeping all 6 dice")
     print("- If no dice can be kept, your turn ends with 0 points")
     print("- If all 6 dice are kept, continue your turn with fresh dice")
+    print("\nSpecial combinations:")
+    print("- Lange Strasse (1-2-3-4-5-6): 1250 points + 50¢ from each opponent")
+    print("- Talheim (3 pairs): 500 points (1000 if consecutive)")
+    print("- Totale (no keepable dice at start): Pay 50¢ to each opponent")
 
     # Start first turn
     game.start_new_turn()

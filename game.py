@@ -19,38 +19,35 @@ class Player:
 
 
 class Game:
-    """Main game controller for 2-player Lange Strasse"""
+    """Main game controller for 3-player Lange Strasse"""
     def __init__(self):
-        self.players = [Player("Player 1"), Player("Player 2")]
+        self.players = [Player("Player 1"), Player("Player 2"), Player("Player 3")]
         self.current_player_idx = 0
         self.dice_set = DiceSet()
         self.game_over = False
         self.winner = None
-        self.final_turn = False  # True when someone reaches 10000+ and other player gets final turn
-
-    def get_current_player(self):
-        return self.players[self.current_player_idx]
-
-    def switch_player(self):
-        self.current_player_idx = (self.current_player_idx + 1) % 2
+        self.final_turn = False
+        self.starting_player_idx = 0  # Track who started the game
 
     def handle_lange_strasse(self):
         """Handle Lange Strasse money distribution"""
         current_player = self.get_current_player()
-        other_player = self.players[1 - self.current_player_idx]
 
-        # Current player gains 50¢, other player loses 50¢
-        current_player.add_money(50)
-        other_player.add_money(-50)
+        # Current player gains 50¢ from each other player
+        for i, player in enumerate(self.players):
+            if i != self.current_player_idx:
+                player.add_money(-50)
+                current_player.add_money(50)
 
     def handle_totale(self):
         """Handle Totale money penalty"""
         current_player = self.get_current_player()
-        other_player = self.players[1 - self.current_player_idx]
 
-        # Current player loses 50¢, other player gains 50¢
-        current_player.add_money(-50)
-        other_player.add_money(50)
+        # Current player loses 50¢ to each other player
+        for i, player in enumerate(self.players):
+            if i != self.current_player_idx:
+                player.add_money(50)
+                current_player.add_money(-50)
 
     def end_turn(self, turn_score):
         """End current player's turn and add score"""
@@ -61,61 +58,65 @@ class Game:
         print(f"{current_player.name}'s total score: {current_player.total_score}")
 
         # Check win conditions
-        if current_player.total_score >= 2000: # temporarily lowered for testing
-            if self.current_player_idx == 0 and not self.final_turn:
-                # Player 1 reached 10000+, Player 2 gets one more turn
+        if current_player.total_score >= 10000:
+            if not self.final_turn:
+                # Someone reached 10000+, finish the round
                 self.final_turn = True
-                print(f"\n{current_player.name} reached 10,000 points! {self.players[1].name} gets one final turn to overtake!")
-            else:
-                # Either Player 2 reached 10000+ or it's the final turn
+                print(f"\n{current_player.name} reached 10,000 points! Finishing the round...")
+
+            # Check if we've completed the round (back to starting player)
+            next_player_idx = (self.current_player_idx + 1) % 3
+            if next_player_idx == self.starting_player_idx and self.final_turn:
                 self.check_winner()
                 return
 
         # Switch to next player
         self.switch_player()
 
-        # If it was the final turn, check winner
-        if self.final_turn and self.current_player_idx == 0:
-            self.check_winner()
-            return
-
         # Start next player's turn
         self.start_new_turn()
 
+    def switch_player(self):
+        """Switch to the next player"""
+        self.current_player_idx = (self.current_player_idx + 1) % 3
+
     def check_winner(self):
         """Determine the winner and handle money"""
-        player1, player2 = self.players
+        # Sort players by score (descending)
+        sorted_players = sorted(self.players, key=lambda p: p.total_score, reverse=True)
 
-        if player1.total_score > player2.total_score:
-            self.winner = player1
-            loser = player2
-        elif player2.total_score > player1.total_score:
-            self.winner = player2
-            loser = player1
-        else:
-            # Tie - player who reached 10000 first wins (Player 1)
-            self.winner = player1
-            loser = player2
+        winner = sorted_players[0]
+        second_place = sorted_players[1]
+        third_place = sorted_players[2]
 
         # Money distribution for winning/losing
-        self.winner.add_money(50)
-        loser.add_money(-50)
+        # Winner gets money from 2nd and 3rd place
+        winner.add_money(50)  # From 2nd place
+        winner.add_money(70)  # From 3rd place
+        second_place.add_money(-50)
+        third_place.add_money(-70)
 
+        self.winner = winner
         self.game_over = True
-        print(f"\n🎉 GAME OVER! {self.winner.name} wins! 🎉")
+        print(f"\n🎉 GAME OVER! {winner.name} wins! 🎉")
         print(f"Final scores:")
-        print(f"Player 1: {player1.total_score} points (Money: {player1.money}¢)")
-        print(f"Player 2: {player2.total_score} points (Money: {player2.money}¢)")
+        for i, player in enumerate(sorted_players, 1):
+            print(f"{i}. {player.name}: {player.total_score} points (Money: {player.money}¢)")
 
     def start_new_turn(self):
         """Start a new turn for the current player"""
         self.dice_set.reset_for_new_turn()
         current_player = self.get_current_player()
         print(f"\n--- {current_player.name}'s turn ---")
-        print(f"Current scores: Player 1: {self.players[0].total_score}, Player 2: {self.players[1].total_score}")
 
-        if self.final_turn and self.current_player_idx == 1:
-            print("⚡ FINAL TURN! Last chance to overtake! ⚡")
+        # Show all players' scores
+        score_display = []
+        for player in self.players:
+            score_display.append(f"{player.name}: {player.total_score}")
+        print(f"Current scores: {', '.join(score_display)}")
+
+        if self.final_turn:
+            print("⚡ FINAL ROUND! Everyone gets one last chance! ⚡")
 
         # Check for Totale at start of turn
         if self.dice_set.check_totale():
@@ -123,3 +124,7 @@ class Game:
             self.handle_totale()
             self.end_turn(0)
             return
+
+    def get_current_player(self):
+        """Get the current player object"""
+        return self.players[self.current_player_idx]
