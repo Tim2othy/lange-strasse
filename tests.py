@@ -384,5 +384,252 @@ class TestLangeStrasseGameMechanics(unittest.TestCase):
         self.assertEqual(dice_set.get_current_total_score(), 1850)
 
 
+class TestWinningMechanics(unittest.TestCase):
+    """Test class focused on winning mechanics and money distribution"""
+
+    def setUp(self):
+        """Set up a fresh game for each test"""
+        self.game = Game()
+        # Override players with test names
+        self.game.players = [Player("Winner"), Player("Second"), Player("Third")]
+        for player in self.game.players:
+            player.has_strich = False
+
+    def test_basic_winner_money_distribution(self):
+        """Test basic winner gets 50¢ from 2nd place, 70¢ from 3rd place"""
+        # Set up final scores
+        self.game.players[0].total_score = 10500  # Winner
+        self.game.players[1].total_score = 8000   # Second
+        self.game.players[2].total_score = 6000   # Third
+        self.game.turn_number = 20
+
+        # Record initial money
+        initial_money = [p.money for p in self.game.players]
+
+        # Trigger win condition
+        self.game.check_winner()
+
+        # Verify basic money distribution
+        self.assertEqual(self.game.players[0].money, initial_money[0] + 50 + 70)  # Winner: +120¢
+        self.assertEqual(self.game.players[1].money, initial_money[1] - 50)       # Second: -50¢
+        self.assertEqual(self.game.players[2].money, initial_money[2] - 70)       # Third: -70¢
+
+    def test_early_win_bonus_by_10th_round(self):
+        """Test winner gets extra 50¢ from each player if winning by round 10"""
+        # Set up early win scenario (round 8)
+        self.game.turn_number = 8
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 7000
+        self.game.players[2].total_score = 5000
+
+        initial_money = [p.money for p in self.game.players]
+
+        self.game.check_winner()
+
+        # Verify early win bonus (50¢ from each other player)
+        expected_winner_money = initial_money[0] + 50 + 70 + 50 + 50  # Basic + early bonus
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+        self.assertEqual(self.game.players[1].money, initial_money[1] - 50 - 50)  # Basic + early penalty
+        self.assertEqual(self.game.players[2].money, initial_money[2] - 70 - 50)  # Basic + early penalty
+
+    def test_no_early_win_bonus_after_10th_round(self):
+        """Test no early win bonus if winning after round 10"""
+        # Set up late win scenario (round 15)
+        self.game.turn_number = 15
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 9000
+        self.game.players[2].total_score = 8000
+
+        initial_money = [p.money for p in self.game.players]
+
+        self.game.check_winner()
+
+        # Verify NO early win bonus
+        expected_winner_money = initial_money[0] + 50 + 70  # Only basic money
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+        self.assertEqual(self.game.players[1].money, initial_money[1] - 50)
+        self.assertEqual(self.game.players[2].money, initial_money[2] - 70)
+
+    def test_no_strich_bonus_single_player(self):
+        """Test no-strich bonus for one player"""
+        # Set up scenario where only winner has no strich
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 8000
+        self.game.players[2].total_score = 6000
+
+        self.game.players[0].has_strich = False  # Winner has no strich
+        self.game.players[1].has_strich = True   # Others have strich
+        self.game.players[2].has_strich = True
+
+        initial_money = [p.money for p in self.game.players]
+        self.game.turn_number = 20
+
+        self.game.check_winner()
+
+        # Winner gets basic money + no-strich bonus (50¢ from each other player)
+        expected_winner_money = initial_money[0] + 50 + 70 + 50 + 50  # Basic + no-strich
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+        self.assertEqual(self.game.players[1].money, initial_money[1] - 50 - 50)  # Basic + no-strich penalty
+        self.assertEqual(self.game.players[2].money, initial_money[2] - 70 - 50)  # Basic + no-strich penalty
+
+    def test_no_strich_bonus_multiple_players(self):
+        """Test no-strich bonus for multiple players"""
+        # Set up scenario where winner and second place have no strich
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 8000
+        self.game.players[2].total_score = 6000
+
+        self.game.players[0].has_strich = True
+        self.game.players[1].has_strich = False
+        self.game.players[2].has_strich = True
+
+        initial_money = [p.money for p in self.game.players]
+        self.game.turn_number = 20
+        self.game.check_winner()
+
+        # Winner gets basic money + no-strich bonus from 2 others
+        # Second gets no-strich bonus from 2 others (but loses to winner)
+        # Third pays no-strich penalty to 2 others (and loses to winner)
+
+        expected_winner_money = initial_money[0] + 50 + 70 - 50
+        expected_second_money = initial_money[1] - 50 + 50 + 50       # Basic loss + no-strich from winner + third
+        expected_third_money = initial_money[2] - 70 - 50        # Basic loss + no-strich to winner + second
+
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+        self.assertEqual(self.game.players[1].money, expected_second_money)
+        self.assertEqual(self.game.players[2].money, expected_third_money)
+
+    def test_under_5000_penalty_single_player(self):
+        """Test under 5000 penalty for one player"""
+        # Set up scenario where third place is under 5000
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 7000
+        self.game.players[2].total_score = 4500  # Under 5000
+
+        initial_money = [p.money for p in self.game.players]
+        self.game.turn_number = 20
+
+        self.game.check_winner()
+
+        # Third place pays extra 50¢ to winner
+        expected_winner_money = initial_money[0] + 50 + 70 + 50  # Basic + under-5000 bonus
+        expected_second_money = initial_money[1] - 50            # Basic loss only
+        expected_third_money = initial_money[2] - 70 - 50        # Basic loss + under-5000 penalty
+
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+        self.assertEqual(self.game.players[1].money, expected_second_money)
+        self.assertEqual(self.game.players[2].money, expected_third_money)
+
+    def test_under_5000_penalty_multiple_players(self):
+        """Test under 5000 penalty for multiple players"""
+        # Set up scenario where both losers are under 5000
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 4800  # Under 5000
+        self.game.players[2].total_score = 4200  # Under 5000
+
+        initial_money = [p.money for p in self.game.players]
+        self.game.turn_number = 20
+
+        self.game.check_winner()
+
+        # Both losers pay extra 50¢ to winner
+        expected_winner_money = initial_money[0] + 50 + 70 + 50 + 50  # Basic + 2x under-5000 bonus
+        expected_second_money = initial_money[1] - 50 - 50            # Basic loss + under-5000 penalty
+        expected_third_money = initial_money[2] - 70 - 50             # Basic loss + under-5000 penalty
+
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+        self.assertEqual(self.game.players[1].money, expected_second_money)
+        self.assertEqual(self.game.players[2].money, expected_third_money)
+
+    def test_combined_bonuses_and_penalties(self):
+        """Test complex scenario with multiple bonuses and penalties"""
+        # Early win (round 7) + winner has no strich + one player under 5000
+        self.game.turn_number = 7
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 6000
+        self.game.players[2].total_score = 4500  # Under 5000
+
+        self.game.players[0].has_strich = False  # Winner has no strich
+        self.game.players[1].has_strich = True
+        self.game.players[2].has_strich = True
+
+        initial_money = [p.money for p in self.game.players]
+
+        self.game.check_winner()
+
+        # Winner gets: basic (50+70) + early win (50+50) + no-strich (50+50) + under-5000 (50)
+        expected_winner_money = initial_money[0] + 50 + 70 + 50 + 50 + 50 + 50 + 50
+        # Second pays: basic (50) + early win (50) + no-strich (50)
+        expected_second_money = initial_money[1] - 50 - 50 - 50
+        # Third pays: basic (70) + early win (50) + no-strich (50) + under-5000 (50)
+        expected_third_money = initial_money[2] - 70 - 50 - 50 - 50
+
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+        self.assertEqual(self.game.players[1].money, expected_second_money)
+        self.assertEqual(self.game.players[2].money, expected_third_money)
+
+    def test_winner_determination_by_highest_score(self):
+        """Test that winner is determined by highest score, not first to 10k"""
+        # Set up scenario where multiple players are over 10k
+        self.game.players[0].total_score = 10200  # First to 10k but not highest
+        self.game.players[1].total_score = 10800  # Highest score - should win
+        self.game.players[2].total_score = 9500
+
+        self.game.check_winner()
+
+        # Player 1 (index 1) should be the winner with highest score
+        self.assertEqual(self.game.winner, self.game.players[1])
+        self.assertTrue(self.game.game_over)
+
+    def test_no_penalties_for_winner(self):
+        """Test that winner doesn't pay any penalties to themselves"""
+        # Winner has strich and is under 5000 (edge case scenario)
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 8000
+        self.game.players[2].total_score = 6000
+
+        self.game.players[0].has_strich = True  # Winner has strich (shouldn't matter)
+
+        initial_money = [p.money for p in self.game.players]
+
+        self.game.check_winner()
+
+        # Winner should only get basic money, no penalties applied to themselves
+        expected_winner_money = initial_money[0] + 50 + 70
+        self.assertEqual(self.game.players[0].money, expected_winner_money)
+
+    def test_exact_10th_round_boundary(self):
+        """Test early win bonus exactly on round 10"""
+        # Test round 10 (should get bonus)
+        self.game.turn_number = 10
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 6000
+        self.game.players[2].total_score = 7000
+
+        initial_money = [p.money for p in self.game.players]
+        self.game.check_winner()
+
+        # Should get early win bonus on round 10
+        expected_money_round_10 = initial_money[0] + 50 + 70 + 50 + 50
+        self.assertEqual(self.game.players[0].money, expected_money_round_10)
+
+    def test_exact_11th_round_boundary(self):
+        """Test early win bonus exactly on round 11"""
+        # Test round 11 (should get bonus)
+        self.game.turn_number = 11
+        self.game.players[0].total_score = 10500
+        self.game.players[1].total_score = 6000
+        self.game.players[2].total_score = 7000
+
+        initial_money = [p.money for p in self.game.players]
+        self.game.check_winner()
+
+        # Should get early win bonus on round 11
+        expected_money_round_11 = initial_money[0] + 50 + 70
+        self.assertEqual(self.game.players[0].money, expected_money_round_11)
+
+
+
+
 if __name__ == '__main__':
     unittest.main()
