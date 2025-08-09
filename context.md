@@ -1,4 +1,3 @@
-
 # Goal
 
 Train AI to play Lange Strasse.
@@ -54,7 +53,9 @@ Different games cannot affect each other so one can view every game as having th
 7. If someone wins and you don't have 5000 points yet you must give the winner 50ct.
 
 
-# What the AI will know
+# AI situation
+
+## What the AI will know
 
 The state of the game has the markov property, nothing about the past has to be known to make a correct decision.
 
@@ -63,7 +64,7 @@ At each point in time the information available to the AI is:
 2. This turns score [int], and this set of dice score [int]
 3. Everyones total score, and if they have gotten a "strich" so far
 4. The current turn [int]
-5. Starting player and order of play
+5. If he is the first second or third player
 
 
 ## For example:
@@ -97,6 +98,6 @@ Turn-number: 7
 Starting player: Player 1
 Order of play: Player 1, you, Player 3
 
-# What the AI will do
+## What the AI will be able to do
 
 Essentially we want a function that takes the current game state as input and outputs the optimal move for the current player.
