@@ -313,8 +313,8 @@ class DiceSet:
         """Reset dice for continuing the same turn"""
         self.kept_dice = [False] * len(self.dice)
         self.kept_groups = []
-        # Keep lange_strasse_achieved, super_strasse_achieved, roll_count, and turn_accumulated_score
-        # Auto-roll after reset
+        self.lange_strasse_achieved = False
+        self.super_strasse_achieved = False
         self.roll()
         # Check if game is over immediately
         self.check_game_over()
