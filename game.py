@@ -180,7 +180,7 @@ class Game:
             return False, message
 
         # Handle Lange Strasse money (check for Super Strasse)
-        if self.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
+        if self.dice_set.lange_strasse_achieved:
             is_super = self.dice_set.super_strasse_achieved
             self.handle_lange_strasse(is_super)
 

@@ -43,6 +43,7 @@ class DiceSet:
     def force_next_roll(self, values):
         """Debug: Force the next roll to have specific values"""
         self.debug_next_roll = values
+        self.roll_count -= 1
 
     def check_game_over(self):
         """Central method to check if game should end due to no valid moves"""
@@ -70,6 +71,11 @@ class DiceSet:
         for die_val in available_dice:
             if die_val == 1 or die_val == 5:
                 return True
+
+        # Check if keeping all available dice would complete a Lange Strasse
+        temp_kept_values = all_kept_values + available_dice
+        if set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
+            return True  # This would complete a Lange Strasse
 
         # Check if we can keep any individual die based on already kept dice
         dice_counts = {}
@@ -212,20 +218,15 @@ class DiceSet:
             return True, f"TALHEIM_{talheim_score}"
 
         # Check for Lange Strasse
-        lange_strasse_just_completed = False
-        if self.check_lange_strasse() and not self.lange_strasse_achieved:
+        if self.check_lange_strasse():
             self.lange_strasse_achieved = True
-            lange_strasse_just_completed = True
 
             # Check if this is a Super Strasse (achieved on 3rd roll)
             if self.roll_count >= 3:
                 self.super_strasse_achieved = True
-                print("� SUPER STRASSE! Lange Strasse on the 3rd roll! 🌟")
+                print("🌟 SUPER STRASSE! Lange Strasse on the 3rd roll! 🌟")
             else:
-                print("�🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
-
-            self.turn_accumulated_score += 1100
-
+                print("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
         # Check if stopping
         if stop_after:
             self.game_over = True
@@ -237,9 +238,12 @@ class DiceSet:
         if not available:
             # All 6 dice kept - add current round score to accumulated and reset dice
             current_round_score = self.get_current_score()
+            if self.lange_strasse_achieved:
+                current_round_score += 1100 #HACK this isn't a good solution, I'm so sorry
             self.turn_accumulated_score += current_round_score
             print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
             self.reset_dice_only()
+            self.roll_count = 0
             return True, f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn."
 
         # Auto-roll remaining dice
