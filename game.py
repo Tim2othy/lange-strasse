@@ -29,6 +29,7 @@ class Game:
         self.final_turn = False
         self.starting_player_idx = 0
         self.turn_number = 1
+        self.someone_reached_10k = False  # Track if anyone reached 10k
 
         # Initialize has_strich for all players
         for player in self.players:
@@ -69,25 +70,31 @@ class Game:
         # Check win conditions
         if current_player.total_score >= 10000:
             if not self.final_turn:
-                # Someone reached 10000+, finish the round
+                # First player to reach 10k
                 self.final_turn = True
-                print(f"\n{current_player.name} reached 10,000 points! Finishing the round...")
+                self.someone_reached_10k = True
+                print(f"\n{current_player.name} reached 10,000 points!")
+                print("⚡ FINAL ROUND! This is the final round we are just going to finish it. ⚡")
 
-            # Check if we've completed the round (back to starting player)
-            next_player_idx = (self.current_player_idx + 1) % 3
-            if next_player_idx == self.starting_player_idx and self.final_turn:
+        # Check if final round is complete
+        if self.final_turn and self.someone_reached_10k:
+            # Final round ends when we've completed a full round after someone reached 10k
+            next_player_idx = (self.current_player_idx + 1) % len(self.players)
+            if next_player_idx == self.starting_player_idx:
+                # We've completed the final round
                 self.check_winner()
                 return
 
-        # Switch to next player
-        self.switch_player()
+        # Switch to next player and continue if game not over
+        if not self.game_over:
+            self.switch_player()
 
-        # Increment turn number when we complete a full round (back to starting player)
-        if self.current_player_idx == self.starting_player_idx:
-            self.turn_number += 1
+            # Increment turn number when we complete a full round (back to starting player)
+            if self.current_player_idx == self.starting_player_idx:
+                self.turn_number += 1
 
-        # Start next player's turn
-        self.start_new_turn()
+            # Start next player's turn
+            self.start_new_turn()
 
     def switch_player(self):
         """Switch to the next player"""
@@ -127,9 +134,6 @@ class Game:
         for player in self.players:
             score_display.append(f"{player.name}: {player.total_score}")
         print(f"Current scores: {', '.join(score_display)}")
-
-        if self.final_turn:
-            print("⚡ FINAL ROUND! Everyone gets one last chance! ⚡")
 
         # Check for Totale at start of turn
         if self.dice_set.check_totale():
