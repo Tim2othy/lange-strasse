@@ -52,6 +52,118 @@ Different games cannot affect each other so one can view every game as having th
 6. If the game ends and you have no "strich" you get 50ct from each player (even if you didn't win)
 7. If someone wins and you don't have 5000 points yet you must give the winner 50ct.
 
+# Game Code structure
+
+
+## File Overview
+
+### 1. scoring.py - Game Rules & Validation
+**Classes:**
+- `ScoreValidator`: Validates which dice combinations can be kept
+   - `is_valid_keep()`: Checks if dice selection follows rules (1s/5s individual, others need 3+)
+
+- `ScoreCalculator`: Calculates points from kept dice
+   - `calculate_score_from_groups()`: Converts kept dice into points using game scoring rules
+
+
+### 2. dice.py - Dice Management & Game State
+**Classes:**
+- `DiceSet`: Core game mechanics - rolling, keeping, scoring
+   - `roll()`: Rolls non-kept dice (with debug override)
+   - `keep_dice_by_value()`: Main action handler - validates and keeps dice
+   - `check_lange_strasse()`, `check_talheim()`, `check_totale()`: Special combination detection
+   - `display()`: Shows current game state to player
+
+### 3. game.py - Player & Game Management
+**Classes:**
+- `Player`: Stores name, score, money, strich status
+- `Game`: Manages 3-player game flow, turn order, win conditions
+   - `end_turn()`: Processes turn results, checks win conditions
+   - `handle_lange_strasse()`, `handle_totale()`: Money distribution
+   - `check_winner()`: Final scoring and money distribution
+
+
+
+### 4. main.py - User Interface & Game Loop
+**Functions:**
+- `main()`: Command parsing, human/AI interaction, debug commands
+
+
+## Game Flow: What Happens When You Type `keep 5`
+
+### 1. **Command Input** (main.py lines 103-137)
+```
+Player types: "keep 5"
+```
+- Command parsed in main game loop
+- `parts = command.split()` → `["keep", "5"]`
+- `dice_values = [int(x) for x in parts[1:]]` → `[5]`
+- Validation: check if values are 1-6
+
+### 2. **Action Execution** (main.py line 138)
+```python
+success, message = game.dice_set.keep_dice_by_value([5], stop_after=False)
+```
+
+### 3. **Dice Validation** (dice.py lines 125-170)
+- Check if enough 5s are available on unrolled dice
+- Get current kept dice for validation context
+- Call `ScoreValidator.is_valid_keep([5], already_kept_dice)`
+
+### 4. **Score Validation** (scoring.py lines 20-50)
+- Since `value == 5`, individual 5s are always valid
+- Return `(True, "")` - validation passed
+
+### 5. **Keep Dice Process** (dice.py lines 172-180)
+- Find first available die with value 5
+- Mark that die position as `kept_dice[i] = True`
+- Call `_merge_kept_dice([5])` to add to kept groups
+
+### 6. **Group Management** (dice.py lines 285-310)
+- Since it's a single 5, create individual group: `kept_groups.append([5])`
+
+### 7. **Special Combination Checks** (dice.py lines 182-194)
+- Check for Talheim (3 pairs) - not applicable
+- Check for Lange Strasse (1-2-3-4-5-6) - not applicable
+
+### 8. **Continue Turn Logic** (dice.py lines 205-220)
+- Check if all dice are kept - if not, continue
+- Auto-roll remaining dice with `self.roll()`
+- Check if any new moves are possible
+
+### 9. **Display Update** (main.py lines 180-185)
+- Print game state after move
+- Call `game.dice_set.display()` to show:
+  - Kept dice: `5`
+  - Available dice: (newly rolled values)
+  - Current set score: `50 points`
+  - Total turn score: `50 points`
+
+### 10. **Score Calculation** (dice.py lines 270-280)
+- `get_current_score()` calls `ScoreCalculator.calculate_score_from_groups()`
+- For group `[5]`: individual 5 = 50 points
+
+### 11. **Wait for Next Command** (main.py line 97)
+- Return to input prompt for next player action
+
+---
+
+## Key Data Flow
+
+**State Tracking:**
+- `dice = [1,2,3,4,5,6]` (physical dice values)
+- `kept_dice = [False,False,False,False,True,False]` (which positions are kept)
+- `kept_groups = [[5]]` (logical grouping for scoring)
+
+**Score Calculation Chain:**
+1. `kept_groups` → `ScoreCalculator.calculate_score_from_groups()`
+2. Individual 5s: 50 points each
+3. Groups of 3+: base score × 2^(extra dice)
+4. Special combinations override normal scoring
+
+**Turn Flow:**
+1. Roll dice → 2. Display state → 3. Player input → 4. Validate action → 5. Execute action → 6. Check specials → 7. Update display → 8. Repeat or end turn
+
 
 # AI situation
 
