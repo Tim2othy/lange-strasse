@@ -181,6 +181,16 @@ class DiceSet:
                 if not is_valid:
                     return False, error_msg
 
+        # Check minimum score requirement for stopping BEFORE keeping dice
+        if stop_after:
+            # Calculate what the score would be if we kept these dice
+            temp_groups = self.kept_groups.copy()
+            temp_groups.append(dice_values_list)
+            projected_set_score = ScoreCalculator.calculate_score_from_groups(temp_groups)
+
+            if projected_set_score < 300:
+                return False, f"Cannot stop with less than 300 points from current dice set. Would score {projected_set_score} points."
+
         # Keep the dice (find indices and mark them as kept)
         for i in available_indices:
             die_value = self.dice[i]
@@ -204,12 +214,6 @@ class DiceSet:
             lange_strasse_just_completed = True
             print("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
             self.turn_accumulated_score += 1100
-
-        # Check minimum score requirement for stopping
-        if stop_after:
-            current_set_score = self.get_current_score()
-            if current_set_score < 300:
-                return False, f"Cannot stop with less than 300 points from current dice set. Current set would score {current_set_score} points."
 
         # Check if stopping
         if stop_after:
