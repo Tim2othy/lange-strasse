@@ -9,6 +9,8 @@ class AIPlayer(Player):
     def __init__(self, name: str, ai_type: str = "simple"):
         super().__init__(name)
         self.is_ai = True
+        # Ensure AIPlayer has all the same attributes as Player
+        self.has_strich = False
 
         if ai_type == "simple":
             self.ai = SimpleAI()

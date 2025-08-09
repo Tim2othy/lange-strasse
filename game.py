@@ -35,15 +35,16 @@ class Game:
         for player in self.players:
             player.has_strich = False
 
-    def handle_lange_strasse(self):
+    def handle_lange_strasse(self, is_super=False):
         """Handle Lange Strasse money distribution"""
         current_player = self.get_current_player()
+        money_amount = 100 if is_super else 50
 
-        # Current player gains 50¢ from each other player
+        # Current player gains money from each other player
         for i, player in enumerate(self.players):
             if i != self.current_player_idx:
-                player.add_money(-50)
-                current_player.add_money(50)
+                player.add_money(-money_amount)
+                current_player.add_money(money_amount)
 
     def handle_totale(self):
         """Handle Totale money penalty"""
@@ -109,12 +110,36 @@ class Game:
         second_place = sorted_players[1]
         third_place = sorted_players[2]
 
-        # Money distribution for winning/losing
-        # Winner gets money from 2nd and 3rd place
+        # Basic money distribution for winning/losing
         winner.add_money(50)  # From 2nd place
         winner.add_money(70)  # From 3rd place
         second_place.add_money(-50)
         third_place.add_money(-70)
+
+        # Bonus for winning by 10th round
+        if self.turn_number <= 10:
+            print(f"🎉 {winner.name} won by round {self.turn_number}! Early win bonus!")
+            for i, player in enumerate(self.players):
+                if i != self.players.index(winner):
+                    player.add_money(-50)
+                    winner.add_money(50)
+
+        # No strich bonus - everyone without a strich gets 50¢ from everyone else
+        no_strich_players = [p for p in self.players if not p.has_strich]
+        if no_strich_players:
+            print(f"🍀 No-strich bonus for: {', '.join(p.name for p in no_strich_players)}")
+            for no_strich_player in no_strich_players:
+                for other_player in self.players:
+                    if other_player != no_strich_player:
+                        other_player.add_money(-50)
+                        no_strich_player.add_money(50)
+
+        # Under 5000 penalty - pay winner extra 50¢
+        for player in self.players:
+            if player != winner and player.total_score < 5000:
+                print(f"💸 {player.name} pays extra 50¢ for being under 5000 points!")
+                player.add_money(-50)
+                winner.add_money(50)
 
         self.winner = winner
         self.game_over = True
@@ -154,9 +179,10 @@ class Game:
         if not success:
             return False, message
 
-        # Handle Lange Strasse money
+        # Handle Lange Strasse money (check for Super Strasse)
         if self.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
-            self.handle_lange_strasse()
+            is_super = self.dice_set.super_strasse_achieved
+            self.handle_lange_strasse(is_super)
 
         # Handle turn progression
         if message.startswith("TALHEIM_"):

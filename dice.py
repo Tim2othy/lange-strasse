@@ -12,6 +12,8 @@ class DiceSet:
         self.turn_accumulated_score = 0
         self.game_over = False
         self.lange_strasse_achieved = False
+        self.super_strasse_achieved = False  # Track if this is a super strasse
+        self.roll_count = 0  # Track number of rolls this turn
         self.debug_next_roll = None  # For testing - force next dice values
         # Auto-roll at start
         self.roll()
@@ -20,6 +22,8 @@ class DiceSet:
 
     def roll(self):
         """Roll all non-kept dice"""
+        self.roll_count += 1  # Increment roll count
+
         if self.debug_next_roll:
             # Use forced values for debugging
             available_indices = self.get_available_dice()
@@ -212,7 +216,14 @@ class DiceSet:
         if self.check_lange_strasse() and not self.lange_strasse_achieved:
             self.lange_strasse_achieved = True
             lange_strasse_just_completed = True
-            print("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
+
+            # Check if this is a Super Strasse (achieved on 3rd roll)
+            if self.roll_count >= 3:
+                self.super_strasse_achieved = True
+                print("� SUPER STRASSE! Lange Strasse on the 3rd roll! 🌟")
+            else:
+                print("�🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
+
             self.turn_accumulated_score += 1100
 
         # Check if stopping
@@ -287,6 +298,8 @@ class DiceSet:
         self.turn_accumulated_score = 0
         self.game_over = False
         self.lange_strasse_achieved = False  # Reset for new turn
+        self.super_strasse_achieved = False  # Reset for new turn
+        self.roll_count = 0  # Reset roll count for new turn
         # Auto-roll for new turn
         self.roll()
         # Check if game is over immediately
@@ -296,7 +309,7 @@ class DiceSet:
         """Reset dice for continuing the same turn"""
         self.kept_dice = [False] * len(self.dice)
         self.kept_groups = []
-        # Keep lange_strasse_achieved and turn_accumulated_score
+        # Keep lange_strasse_achieved, super_strasse_achieved, roll_count, and turn_accumulated_score
         # Auto-roll after reset
         self.roll()
         # Check if game is over immediately
