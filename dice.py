@@ -155,14 +155,15 @@ class DiceSet:
         # Check for special combinations first
         temp_kept_values = all_kept_values + dice_values_list
 
-        # Check if this would be Talheim (3 pairs with exactly 6 dice)
+        # Check if this would be a special combination (always valid)
         if len(temp_kept_values) == 6:
             temp_counts = Counter(temp_kept_values)
-            if len(temp_counts) == 3 and all(count == 2 for count in temp_counts.values()):
-                # This is Talheim - always valid
-                pass
-            elif set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
-                # This is Lange Strasse - always valid
+            is_potential_talheim = (len(temp_counts) == 3 and
+                                  all(count == 2 for count in temp_counts.values()))
+            is_potential_lange_strasse = set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6})
+
+            if is_potential_talheim or is_potential_lange_strasse:
+                # Special combinations are always valid
                 pass
             else:
                 # Regular validation
@@ -341,9 +342,3 @@ class DiceSet:
 
         total_turn_score = self.get_current_total_score()
         print(f"Total turn  score: {total_turn_score} points")
-
-    # Keep old method for backward compatibility, but deprecate it
-    def keep_dice(self, indices, stop_after=False):
-        """Legacy method - converts indices to values and calls new method"""
-        dice_values = [self.dice[i] for i in indices if 0 <= i < len(self.dice) and not self.kept_dice[i]]
-        return self.keep_dice_by_value(dice_values, stop_after)

@@ -83,38 +83,17 @@ def main():
             explanation = current_player.get_explanation(game, action)
             print(explanation)
 
-            # Execute AI action
-            success, message = game.dice_set.keep_dice_by_value(action.dice_to_keep, action.stop_after)
+            # Execute AI action using unified method
+            success, result = game.process_dice_action(action.dice_to_keep, action.stop_after)
 
             if success:
-                # Handle the result same as human player
-                was_lange_strasse_achieved = game.dice_set.lange_strasse_achieved
-
-                if game.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
-                    game.handle_lange_strasse()
-
-                if message.startswith("TALHEIM_"):
-                    talheim_score = int(message.split("_")[1])
-                    game.end_turn(talheim_score)
-                    if not game.game_over:
-                        game.dice_set.display()
-                elif message.startswith("All dice used!"):
+                if result == "continue_turn":
                     print()
                     game.dice_set.display()
-                elif action.stop_after or game.dice_set.game_over:
-                    if action.stop_after:
-                        turn_score = game.dice_set.get_current_total_score()
-                    else:
-                        turn_score = 0
-
-                    game.end_turn(turn_score)
-                    if not game.game_over:
-                        game.dice_set.display()
-                else:
-                    print()
+                elif result == "turn_ended" and not game.game_over:
                     game.dice_set.display()
             else:
-                print(f"AI Error: {message}")
+                print(f"AI Error: {result}")
 
             continue
 
@@ -150,15 +129,10 @@ def main():
                         print(f"Invalid dice value: {val}. Must be between 1 and 6.")
                         continue
 
-                # Try to keep the dice
-                was_lange_strasse_achieved = game.dice_set.lange_strasse_achieved
-                success, message = game.dice_set.keep_dice_by_value(dice_values, stop_after)
+                # Try to keep the dice using unified method
+                success, result = game.process_dice_action(dice_values, stop_after)
 
                 if success:
-                    # Check if Lange Strasse was just completed
-                    if game.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
-                        game.handle_lange_strasse()
-
                     # Print state AFTER the dice are kept and processed
                     print("\n" + "="*50)
                     print("GAME STATE AFTER MOVE:")
@@ -177,32 +151,13 @@ def main():
                     print(f"Your player number:  {state.your_player_number}")
                     print("="*50)
 
-                    # Check for special combinations
-                    if message.startswith("TALHEIM_"):
-                        talheim_score = int(message.split("_")[1])
-                        game.end_turn(talheim_score)
-                        if not game.game_over:
-                            game.dice_set.display()
-                    elif message.startswith("All dice used!"):
-                        # This handles both normal "all 6 dice" and Lange Strasse cases
-                        print()  # Add spacing
-                        game.dice_set.display()
-                    elif stop_after or game.dice_set.game_over:
-                        # Normal turn ending
-                        if stop_after:
-                            turn_score = game.dice_set.get_current_total_score()
-                        else:
-                            turn_score = 0
-
-                        game.end_turn(turn_score)
-                        if not game.game_over:
-                            game.dice_set.display()
-                    else:
-                        # Turn continues
+                    if result == "continue_turn":
                         print()
                         game.dice_set.display()
+                    elif result == "turn_ended" and not game.game_over:
+                        game.dice_set.display()
                 else:
-                    print(f"Error: {message}")
+                    print(f"Error: {result}")
 
             except ValueError:
                 print("Invalid input. Use dice values only (e.g., 'keep 1 5 5' or 'keep 1 1 1 stop')")

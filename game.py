@@ -141,3 +141,29 @@ class Game:
     def get_current_player(self):
         """Get the current player object"""
         return self.players[self.current_player_idx]
+
+    def process_dice_action(self, dice_values, stop_after):
+        """Unified processing for both AI and human dice actions"""
+        was_lange_strasse_achieved = self.dice_set.lange_strasse_achieved
+        success, message = self.dice_set.keep_dice_by_value(dice_values, stop_after)
+
+        if not success:
+            return False, message
+
+        # Handle Lange Strasse money
+        if self.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
+            self.handle_lange_strasse()
+
+        # Handle turn progression
+        if message.startswith("TALHEIM_"):
+            talheim_score = int(message.split("_")[1])
+            self.end_turn(talheim_score)
+            return True, "turn_ended"
+        elif message.startswith("All dice used!"):
+            return True, "continue_turn"
+        elif stop_after or self.dice_set.game_over:
+            turn_score = self.dice_set.get_current_total_score() if stop_after else 0
+            self.end_turn(turn_score)
+            return True, "turn_ended"
+        else:
+            return True, "continue_turn"
