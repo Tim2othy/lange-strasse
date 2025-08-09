@@ -358,4 +358,4 @@ class DiceSet:
             print(f"Current set score: {self.get_current_score()} points")
 
         total_turn_score = self.get_current_total_score()
-        print(f"Total turn  score: {total_turn_score} points")
+        print(f"🧩Total turn  score: {total_turn_score} points")

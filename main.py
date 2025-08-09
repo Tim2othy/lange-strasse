@@ -170,7 +170,7 @@ def main():
                     values = [int(x) for x in parts[1:]]
                     game.dice_set.force_next_roll(values)
                     game.dice_set.roll()
-                    print("Debug: Forced dice roll")
+                    print("💬Debug: Forced dice roll")
                     game.dice_set.display()
                 else:
                     print("Usage: force 1 2 3 4 5 6")
