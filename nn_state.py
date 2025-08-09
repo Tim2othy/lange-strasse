@@ -74,7 +74,7 @@ class NNStateExtractor:
         current_player = game.current_player_idx
 
         return NNState(
-            available_dice=available_dice,
+            available_dice=available_dice_counts,
             kept_dice_counts=kept_dice_counts,
             kept_1s_grouped=kept_1s_grouped,
             kept_5s_grouped=kept_5s_grouped,
