@@ -49,8 +49,8 @@ class DiceSet:
         """Central method to check if game should end due to no valid moves"""
         if not self.can_keep_any_dice() and not self.game_over:
             self.game_over = True
-            # Check if this is a Totale (no dice kept at all)
-            if len(self.kept_groups) == 0:
+            # Check if this is a Totale (no dice can be kept on first roll)
+            if self.roll_count == 1:
                 print("💀 TOTALE! No dice can be kept! 💀")
                 return "TOTALE"
             return True
@@ -129,8 +129,8 @@ class DiceSet:
             return True, 500   # Non-consecutive pairs
 
     def check_totale(self):
-        """Check if this is a Totale (no dice kept at start of turn)"""
-        return len(self.kept_groups) == 0 and not self.can_keep_any_dice()
+        """Check if this is a Totale (no dice can be kept on first roll)"""
+        return self.roll_count == 1 and not self.can_keep_any_dice()
 
 
     def keep_dice_by_value(self, dice_values, stop_after=False):

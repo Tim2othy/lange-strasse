@@ -163,8 +163,7 @@ class Game:
         # Check for Totale at start of turn
         if self.dice_set.check_totale():
             print("💀 TOTALE! No dice can be kept at start of turn! 💀")
-            self.handle_totale()
-            self.end_turn(0)
+            # Note: handle_totale() and end_turn(0) will be called by main.py game loop
             return
 
     def get_current_player(self):
