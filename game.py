@@ -27,7 +27,12 @@ class Game:
         self.game_over = False
         self.winner = None
         self.final_turn = False
-        self.starting_player_idx = 0  # Track who started the game
+        self.starting_player_idx = 0
+        self.turn_number = 1
+
+        # Initialize has_strich for all players
+        for player in self.players:
+            player.has_strich = False
 
     def handle_lange_strasse(self):
         """Handle Lange Strasse money distribution"""
@@ -54,6 +59,10 @@ class Game:
         current_player = self.get_current_player()
         current_player.total_score += turn_score
 
+        # Mark strich if player got 0 points
+        if turn_score == 0:
+            current_player.has_strich = True
+
         print(f"\n{current_player.name} scored {turn_score} points this turn!")
         print(f"{current_player.name}'s total score: {current_player.total_score}")
 
@@ -72,6 +81,10 @@ class Game:
 
         # Switch to next player
         self.switch_player()
+
+        # Increment turn number when we complete a full round (back to starting player)
+        if self.current_player_idx == self.starting_player_idx:
+            self.turn_number += 1
 
         # Start next player's turn
         self.start_new_turn()

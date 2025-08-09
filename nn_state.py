@@ -8,7 +8,7 @@ from collections import Counter
 class NNState:
     """Simplified state for neural network - only essential information"""
     # 1. Available dice and kept dice info
-    available_dice: List[int]  # 6 elements, 0 if kept
+    available_dice: List[int]  # 6 elements, count of each die value 1-6
     kept_dice_counts: List[int]  # Count of each value 1-6 currently kept
     kept_1s_grouped: int  # How many 1s are in groups (vs individual)
     kept_5s_grouped: int  # How many 5s are in groups (vs individual)
@@ -19,14 +19,13 @@ class NNState:
 
     # 3. Player scores and strich status
     player_scores: List[int]  # Total scores for all 3 players
-    player_strich: List[bool]  # Whether each player has gotten a strich
+    player_strich: List[bool]  # Whether each player has gotten a strich (0 points in a turn)
 
     # 4. Turn information
     turn_number: int
 
-    # 5. Player order
-    starting_player: int  # 0, 1, or 2
-    current_player: int   # 0, 1, or 2
+    # 5. Player identification
+    your_player_number: int   # 0, 1, or 2 - which player this AI is
 
 class NNStateExtractor:
     """Extract simplified state for neural network"""
@@ -66,12 +65,11 @@ class NNStateExtractor:
         player_scores = [player.total_score for player in game.players]
         player_strich = [getattr(player, 'has_strich', False) for player in game.players]
 
-        # 4. Turn number (we'll need to add this to game)
+        # 4. Turn number
         turn_number = getattr(game, 'turn_number', 1)
 
-        # 5. Player order
-        starting_player = getattr(game, 'starting_player_idx', 0)
-        current_player = game.current_player_idx
+        # 5. Player identification
+        your_player_number = game.current_player_idx
 
         return NNState(
             available_dice=available_dice_counts,
@@ -83,8 +81,7 @@ class NNStateExtractor:
             player_scores=player_scores,
             player_strich=player_strich,
             turn_number=turn_number,
-            starting_player=starting_player,
-            current_player=current_player
+            your_player_number=your_player_number
         )
 
     @staticmethod
@@ -119,9 +116,8 @@ class NNStateExtractor:
         # 4. Turn number (normalize by expected max ~20 turns)
         vector.append(state.turn_number / 20.0)
 
-        # 5. Player indices (normalize 0,1,2 to 0,0.5,1)
-        vector.append(state.starting_player / 2.0)
-        vector.append(state.current_player / 2.0)
+        # 5. Player identification (normalize 0,1,2 to 0,0.5,1)
+        vector.append(state.your_player_number / 2.0)
 
         return np.array(vector, dtype=np.float32)
 
@@ -129,8 +125,8 @@ class NNStateExtractor:
     def get_vector_size() -> int:
         """Get the size of the state vector"""
         # 6 (available dice) + 6 (kept counts) + 2 (grouped) + 2 (scores) +
-        # 3 (player scores) + 3 (strich) + 1 (turn) + 2 (player indices) = 25
-        return 25
+        # 3 (player scores) + 3 (strich) + 1 (turn) + 1 (player number) = 24
+        return 24
 
 class ActionEncoder:
     """Encode/decode actions for neural network"""
