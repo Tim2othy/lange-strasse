@@ -8,6 +8,7 @@ class Player:
         self.name = name
         self.total_score = 0
         self.money = 0  # Money in cents
+        self.has_strich = False
 
     def add_money(self, cents):
         """Add money (can be negative for losses)"""
@@ -20,6 +21,7 @@ class Player:
 
 class Game:
     """Main game controller for 3-player Lange Strasse"""
+
     def __init__(self):
         self.players = [Player("Player 1"), Player("Player 2"), Player("Player 3")]
         self.current_player_idx = 0
@@ -30,10 +32,6 @@ class Game:
         self.starting_player_idx = 0
         self.turn_number = 1
         self.someone_reached_10k = False  # Track if anyone reached 10k
-
-        # Initialize has_strich for all players
-        for player in self.players:
-            player.has_strich = False
 
     def handle_lange_strasse(self, is_super=False):
         """Handle Lange Strasse money distribution"""
