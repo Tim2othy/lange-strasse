@@ -2,9 +2,9 @@
 Comprehensive tests for Lange Strasse game mechanics
 """
 import unittest
-from game import Game, Player
+
 from dice import DiceSet
-from collections import Counter
+from game import Game, Player
 
 
 class TestLangeStrasseGameMechanics(unittest.TestCase):
@@ -627,8 +627,6 @@ class TestWinningMechanics(unittest.TestCase):
         # Should get early win bonus on round 11
         expected_money_round_11 = initial_money[0] + 50 + 70
         self.assertEqual(self.game.players[0].money, expected_money_round_11)
-
-
 
 
 if __name__ == '__main__':
