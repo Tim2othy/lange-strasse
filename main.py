@@ -65,10 +65,15 @@ def main():
     game.dice_set.display()
 
     while not game.game_over:
-        game_over_result = game.dice_set.check_game_over()
-        if game_over_result:
-            # Current turn ended
-            if game_over_result == "TOTALE":
+        dice_set = game.dice_set
+
+        # Turn ends immediately if the current player has no keepable dice.
+        # NOTE: don't rely on check_game_over()'s return value here -- it is
+        # stateful and returns False once game_over is already set (which the
+        # reset_* helpers do internally), which used to cause an infinite loop.
+        if dice_set.game_over or not dice_set.can_keep_any_dice():
+            if dice_set.check_totale():
+                # No keepable dice on the very first roll -> Totale penalty.
                 game.handle_totale()
             game.end_turn(0)
             if not game.game_over:
@@ -82,7 +87,12 @@ def main():
             # AI player's turn
             action = current_player.choose_action(game)
             if action is None:
-                print(f"{current_player.name} has no valid moves!")
+                # Safety net: no legal action -> end the turn with 0 points
+                # instead of spinning forever on unchanged state.
+                print(f"{current_player.name} has no valid moves! Turn ends with 0 points.")
+                game.end_turn(0)
+                if not game.game_over:
+                    game.dice_set.display()
                 continue
 
             print(f"\n{current_player.name} chooses: {action}")
