@@ -99,7 +99,7 @@ class Game:
 
     def switch_player(self):
         """Switch to the next player"""
-        self.current_player_idx = (self.current_player_idx + 1) % 3
+        self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
 
     def check_winner(self):
         """Determine the winner and handle money"""
@@ -144,7 +144,7 @@ class Game:
         self.winner = winner
         self.game_over = True
         print(f"\n🎉 GAME OVER! {winner.name} wins! 🎉")
-        print(f"Final scores:")
+        print("Final scores:")
         for i, player in enumerate(sorted_players, 1):
             print(f"{i}. {player.name}: {player.total_score} points (Money: {player.money}¢)")
 
@@ -178,10 +178,12 @@ class Game:
         if not success:
             return False, message
 
-        # Handle Lange Strasse money (check for Super Strasse)
-        if self.dice_set.lange_strasse_achieved:
-            is_super = self.dice_set.super_strasse_achieved
-            self.handle_lange_strasse(is_super)
+        # Pay out Lange Strasse money once, when it is first achieved this set.
+        # Then consume the flags so a later Strasse in the same turn pays again.
+        if self.dice_set.lange_strasse_achieved and not was_lange_strasse_achieved:
+            self.handle_lange_strasse(self.dice_set.super_strasse_achieved)
+            self.dice_set.lange_strasse_achieved = False
+            self.dice_set.super_strasse_achieved = False
 
         # Handle turn progression
         if message.startswith("TALHEIM_"):

@@ -236,14 +236,13 @@ class DiceSet:
         # Check if all dice are kept
         available = self.get_available_dice()
         if not available:
-            # All 6 dice kept - add current round score to accumulated and reset dice
+            # All 6 dice kept - bank this set's score and roll a fresh set of 6.
+            # (Strasse money/flags are handled by Game.process_dice_action, which
+            # reads the achieved flags before the next set clears them.)
             current_round_score = self.get_current_score()
-            if self.lange_strasse_achieved:
-                current_round_score += 1100 #HACK this isn't a good solution, I'm so sorry
             self.turn_accumulated_score += current_round_score
             print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
             self.reset_dice_only()
-            self.roll_count = 0
             return True, f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn."
 
         # Auto-roll remaining dice
@@ -256,12 +255,14 @@ class DiceSet:
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the current score for this round only"""
-
-        # Check for Talheim first
+        """Get the score for the current dice set (this sub-round only)"""
+        # Special combinations score a fixed amount and take priority.
         is_talheim, talheim_score = self.check_talheim()
         if is_talheim:
             return talheim_score
+
+        if self.check_lange_strasse():
+            return 1250
 
         return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
 
@@ -310,11 +311,16 @@ class DiceSet:
         self.check_game_over()
 
     def reset_dice_only(self):
-        """Reset dice for continuing the same turn"""
+        """Reset the dice for a fresh set of 6 within the same turn.
+
+        Deliberately does NOT clear lange_strasse_achieved/super_strasse_achieved:
+        those are read (and then consumed) by Game.process_dice_action so the
+        Strasse money is paid out. They are only fully cleared in
+        reset_for_new_turn when a new player takes over.
+        """
         self.kept_dice = [False] * len(self.dice)
         self.kept_groups = []
-        self.lange_strasse_achieved = False
-        self.super_strasse_achieved = False
+        self.roll_count = 0
         self.roll()
         # Check if game is over immediately
         self.check_game_over()
@@ -331,7 +337,7 @@ class DiceSet:
     def display(self):
         """Display current dice state in a cleaner format"""
         if self.game_over:
-            print(f"\nTurn over! Score: 0 points (no valid moves)")
+            print("\nTurn over! Score: 0 points (no valid moves)")
             return
 
         # Show kept dice groups
