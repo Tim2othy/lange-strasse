@@ -1,6 +1,6 @@
 """AI state representation for Lange Strasse"""
 from dataclasses import dataclass
-from typing import List, Dict, Tuple, Optional
+from typing import List
 from collections import Counter
 
 @dataclass

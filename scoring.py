@@ -101,18 +101,3 @@ class ScoreCalculator:
                     # Other values can't be kept individually (validation prevents this)
 
         return total_score
-
-    @staticmethod
-    def calculate_score(kept_dice_values):
-        """Legacy method - assumes all dice were kept as individual groups"""
-        if not kept_dice_values:
-            return 0
-        groups = [[die] for die in kept_dice_values]
-        return ScoreCalculator.calculate_score_from_groups(groups)
-
-    @staticmethod
-    def has_scoring_dice(dice):
-        """Check if any dice can score points"""
-        # For now, assume any dice can potentially score
-        # This could be more sophisticated later
-        return True

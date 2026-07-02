@@ -1,6 +1,6 @@
 """AI action representation and generation for Lange Strasse"""
 from dataclasses import dataclass
-from typing import List, Tuple, Set
+from typing import List
 from collections import Counter
 import itertools
 

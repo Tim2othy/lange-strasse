@@ -1,9 +1,7 @@
 """AI move evaluation for Lange Strasse"""
-from typing import Dict, List
-import random
+from collections import Counter
 from ai_state import GameState, StateExtractor
 from ai_actions import Action, ActionGenerator
-from collections import Counter
 
 class MoveEvaluator:
     """Evaluate moves for the AI"""
@@ -55,9 +53,6 @@ class MoveEvaluator:
         # Simulate adding the action to current kept groups
         temp_groups = state.kept_groups.copy()
         temp_groups.append(action.dice_to_keep)
-
-        # Use the scoring calculator (simplified version)
-        from collections import Counter
 
         # Check for special combinations first
         all_dice = []
