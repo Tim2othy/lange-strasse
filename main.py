@@ -1,7 +1,9 @@
 """main.py"""
-from game import Player, Game
+
 from ai_player import AIPlayer, create_mixed_game
+from game import Game
 from nn_state import NNStateExtractor
+
 
 def main():
     """Main game loop for 3-player Lange Strasse"""
@@ -22,6 +24,8 @@ def main():
         except ValueError:
             print("Please enter a valid number")
 
+    game = None
+
     # Create game based on choice
     if choice == 1:
         game = Game()  # All human players
@@ -34,6 +38,8 @@ def main():
         game.players[2] = AIPlayer("AI Player 3")
     elif choice == 4:
         game = create_mixed_game(3)  # All AI players
+
+    assert game is not None, "Game creation failed"
 
     print("Goal: First to 10,000 points wins!")
     print("Commands: 'keep <values>', 'keep <values> stop', 'quit'")
