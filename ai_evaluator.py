@@ -1,7 +1,9 @@
 """AI move evaluation for Lange Strasse"""
 from collections import Counter
-from ai_state import GameState, StateExtractor
+
 from ai_actions import Action, ActionGenerator
+from ai_state import GameState, StateExtractor
+
 
 class MoveEvaluator:
     """Evaluate moves for the AI"""
@@ -187,8 +189,8 @@ class SimpleAI:
         valid_actions = ActionGenerator.get_valid_actions(game)
 
         if not valid_actions:
-            # Should not happen in normal play
-            return None
+            exception = "No valid actions available for the current state."
+            raise ValueError(exception)
 
         # Evaluate all actions
         best_action = None
@@ -199,6 +201,9 @@ class SimpleAI:
             if score > best_score:
                 best_score = score
                 best_action = action
+        assert (
+            best_action is not None
+        ), "No valid action found despite valid_actions being non-empty."
 
         return best_action
 
