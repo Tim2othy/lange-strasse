@@ -5,7 +5,6 @@ from ai_player import AIPlayer
 from config import AIS_PLAY, ALGOS
 from game import TheGame
 from game_state import StateExtractor
-from nn_state import NNStateExtractor
 
 
 def main():
@@ -140,31 +139,8 @@ def main():
                 # Try to keep the dice using unified method
                 success, result = game.process_dice_action(dice_values, stop_after)
 
-                if success:
-                    # Print state AFTER the dice are kept and processed
-                    print("\n" + "=" * 50)
-                    print("GAME STATE AFTER MOVE:")
-                    print("=" * 50)
-
-                    state = NNStateExtractor.extract_state(game)
-                    print(f"Available dice:      {state.available_dice}")
-                    print(f"Kept dice counts:    {state.kept_dice_counts}")
-                    print(f"Kept 1s grouped:     {state.kept_1s_grouped}")
-                    print(f"Kept 5s grouped:     {state.kept_5s_grouped}")
-                    print(f"Turn score:          {state.turn_score}")
-                    print(f"Current set score:   {state.current_set_score}")
-                    print(f"Player scores:       {state.player_scores}")
-                    print(f"Player strich:       {state.player_strich}")
-                    print(f"Turn number:         {state.turn_number}")
-                    print(f"Your player number:  {state.your_player_number}")
-                    print("=" * 50)
-
-                    if result == "continue_turn":
-                        print()
-                        game.dice_set.display()
-                    elif result == "turn_ended" and not game.game_over:
-                        game.dice_set.display()
-                else:
+                if not success:
+                    print(f"Error: {result}")
                     print(f"Error: {result}")
 
             except ValueError:
