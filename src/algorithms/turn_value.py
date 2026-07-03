@@ -25,10 +25,12 @@ means a bust branch returns 0 (you lose prev + current set), and
 so max(stop, continue) trades off correctly.
 """
 
+import pickle
 from collections import Counter
 from functools import lru_cache
 from itertools import combinations_with_replacement
 from math import factorial
+from pathlib import Path
 
 from ai_actions import ActionGenerator
 from scoring import flatten, merge_kept, score_groups, talheim_score
@@ -36,6 +38,19 @@ from scoring import flatten, merge_kept, score_groups, talheim_score
 NUM_DICE = 6
 STOP_MIN = 300      # minimum current-set score needed to bank a turn
 T_MAX = 4000  # at/above this we assume optimal play banks (keeps the DAG finite)
+
+# --- persisted value cache -------------------------------------------------- #
+# Building the table takes a few seconds, so we pickle it and start warm next run.
+# The header records everything the values depend on; a mismatch (rules or params
+# changed) means the file is ignored and rebuilt rather than silently trusted.
+_CACHE: dict[tuple, float] = {}
+_CACHE_PATH = Path(__file__).with_name("turn_value_cache.pkl")
+_CACHE_VERSION = 1  # bump when a scoring-rule change affects the computed values
+_ready = False
+
+
+def _header() -> tuple:
+    return (_CACHE_VERSION, NUM_DICE, STOP_MIN, T_MAX)
 
 
 @lru_cache(maxsize=None)
@@ -81,9 +96,18 @@ def continue_value(kept_key: tuple[tuple[int, ...], ...], prev: int) -> float:
     return _value(kept_key, prev)
 
 
-@lru_cache(maxsize=None)
 def _value(kept_key: tuple[tuple[int, ...], ...], prev: int) -> float:
-    """Expected final turn score: about to roll the remaining dice from this state."""
+    """Expected final turn score: about to roll the remaining dice from this state.
+
+    Memoized in the module-level _CACHE dict (which is what we pickle). The state
+    graph is a DAG ordered by total-at-risk, so there are no cycles and storing the
+    result after computing it is safe.
+    """
+    memo_key = (kept_key, prev)
+    cached = _CACHE.get(memo_key)
+    if cached is not None:
+        return cached
+
     kept_groups = [list(group) for group in kept_key]
     kept_values = tuple(sorted(flatten(kept_groups)))
     n = NUM_DICE - len(kept_values)
@@ -96,6 +120,8 @@ def _value(kept_key: tuple[tuple[int, ...], ...], prev: int) -> float:
         else:
             best = max(_keep_value(kept_groups, prev, keep) for keep in keeps)
         ev += prob * best
+
+    _CACHE[memo_key] = ev
     return ev
 
 
@@ -124,6 +150,7 @@ def action_value(state, action) -> float:
     ``state`` is a GameState, ``action`` an Action. Uses merge_kept so keeping a die
     that extends an existing triplet is scored as the doubled group, matching the game.
     """
+    ensure_ready()
     new_kept = merge_kept(state.kept_groups, action.dice_to_keep)
     values = flatten(new_kept)
     prev = state.turn_accumulated_score
@@ -139,5 +166,40 @@ def action_value(state, action) -> float:
 
 
 def precompute() -> None:
-    """Warm the value cache from the start of a turn (optional; else it fills lazily)."""
+    """Fill the value cache from the start of a turn (every reachable state)."""
     continue_value((), 0)
+
+
+def load_cache(path: Path = _CACHE_PATH) -> bool:
+    """Populate the in-memory cache from `path`. Returns False if missing or stale."""
+    if not path.exists():
+        return False
+    try:
+        with open(path, "rb") as f:
+            data = pickle.load(f)
+    except (pickle.UnpicklingError, EOFError, OSError, AttributeError):
+        return False  # corrupt/partial file -> rebuild
+    if not isinstance(data, dict) or data.get("header") != _header():
+        return False  # rules/params changed -> rebuild
+    _CACHE.update(data["values"])
+    return True
+
+
+def save_cache(path: Path = _CACHE_PATH) -> None:
+    """Write the current in-memory cache to `path`."""
+    with open(path, "wb") as f:
+        pickle.dump({"header": _header(), "values": _CACHE}, f)
+
+
+def ensure_ready() -> None:
+    """Ensure the value cache is loaded, once. Load from disk, else build and save.
+
+    Cheap to call on every decision: after the first call it's just a flag check.
+    """
+    global _ready
+    if _ready:
+        return
+    _ready = True
+    if not load_cache():
+        precompute()
+        save_cache()

@@ -180,3 +180,6 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 config.py
+
+# Precomputed DP value cache (regenerated on demand)
+turn_value_cache.pkl
