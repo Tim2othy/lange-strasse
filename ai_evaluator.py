@@ -1,7 +1,7 @@
 """AI move evaluation for Lange Strasse"""
 
 from ai_actions import Action
-from game_state import GameState, StateExtractor
+from game_state import GameState
 from scoring import flatten, is_lange_strasse, score_groups, talheim_score
 
 
@@ -163,6 +163,6 @@ def simple_action(state, valid_actions) -> Action:
 
     def get_action_explanation(self, game, action: Action) -> str:
         """Get explanation for why this action was chosen"""
-        state = StateExtractor.extract_state(game)
-        score = self.evaluator.evaluate_action(state, action)
+        # state = StateExtractor.extract_state(game)
+        # score = self.evaluator.evaluate_action(state, action)
         return f"AI chose: {action} (score: {score:.2f})"
