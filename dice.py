@@ -8,9 +8,9 @@ from scoring import (
     ScoreValidator,
     flatten,
     is_lange_strasse,
-    score_groups,
     talheim_score,
 )
+
 
 class DiceSet:
     """Handle dice rolling and management"""
@@ -98,7 +98,6 @@ class DiceSet:
     def check_totale(self):
         """Check if this is a Totale (no dice can be kept on first roll)"""
         return self.roll_count == 1 and not self.can_keep_any_dice()
-
 
     def keep_dice_by_value(self, dice_values, stop_after=False):
         """Keep dice by their face values (e.g., keep two 5s, one 1)"""
@@ -195,8 +194,16 @@ class DiceSet:
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the score for the current dice set (this sub-round only)."""
-        return score_groups(self.kept_groups)
+        """Get the score for the current dice set (this sub-round only)"""
+        # Special combinations score a fixed amount and take priority.
+        is_talheim, talheim_score = self.check_talheim()
+        if is_talheim:
+            return talheim_score
+
+        if self.check_lange_strasse():
+            return 1250
+
+        return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
 
     def _merge_kept_dice(self, new_dice_values):
         """Add new dice values, only merging when it creates a scoring advantage"""
