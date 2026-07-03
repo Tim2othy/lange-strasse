@@ -1,5 +1,6 @@
 """Main loop for game, nothing else."""
 
+from ai_player import AIPlayer
 from game import TheGame
 from nn_state import NNStateExtractor
 
@@ -71,7 +72,9 @@ def main():
         if hasattr(current_player, "is_ai") and current_player.is_ai:
             # AI player's turn. The guard above guarantees at least one legal
             # move, so choose_action always returns an Action here.
-            assert current_player is AIPlayer
+            assert isinstance(
+                current_player, AIPlayer
+            ), "AI player must be an instance of AIPlayer"
             action = current_player.choose_action(game)
 
             print(f"\n{current_player.name} chooses: {action}")

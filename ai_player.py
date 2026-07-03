@@ -1,7 +1,26 @@
-"""AI player integration for Lange Strasse"""
+"""Player and AIPlayer Classes"""
+
 from ai_actions import Action
 from ai_evaluator import SimpleAI
-from game import Player
+
+
+class Player:
+    """Represents a player in the game"""
+
+    def __init__(self, name):
+        self.name = name
+        self.total_score = 0
+        self.money = 0  # Money in cents
+        self.has_strich = False
+        self.is_ai = False
+
+    def add_money(self, cents):
+        """Add money (can be negative for losses)"""
+        self.money += cents
+        if cents > 0:
+            print(f"💰 {self.name} gains {cents}¢!")
+        else:
+            print(f"💸 {self.name} loses {abs(cents)}¢!")
 
 
 class AIPlayer(Player):
