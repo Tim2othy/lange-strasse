@@ -9,6 +9,7 @@ class Player:
         self.total_score = 0
         self.money = 0  # Money in cents
         self.has_strich = False
+        self.is_ai = False
 
     def add_money(self, cents):
         """Add money (can be negative for losses)"""

@@ -229,7 +229,7 @@ class ActionEncoder:
             # Use the game's validation logic
             success, _ = dice_set.keep_dice_by_value(dice_values, stop_after=False)
             return success
-        except:
+        except Exception:
             return False
 
 # Example usage and testing
