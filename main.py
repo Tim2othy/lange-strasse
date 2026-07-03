@@ -84,16 +84,9 @@ def main():
 
         # Check if current player is AI
         if hasattr(current_player, 'is_ai') and current_player.is_ai:
-            # AI player's turn
+            # AI player's turn. The guard above guarantees at least one legal
+            # move, so choose_action always returns an Action here.
             action = current_player.choose_action(game)
-            if action is None:
-                # Safety net: no legal action -> end the turn with 0 points
-                # instead of spinning forever on unchanged state.
-                print(f"{current_player.name} has no valid moves! Turn ends with 0 points.")
-                game.end_turn(0)
-                if not game.game_over:
-                    game.dice_set.display()
-                continue
 
             print(f"\n{current_player.name} chooses: {action}")
             explanation = current_player.get_explanation(game, action)

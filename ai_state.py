@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import List
 from collections import Counter
 
+from scoring import flatten, is_lange_strasse, talheim_score
+
 @dataclass
 class PlayerState:
     """State information for a single player"""
@@ -92,34 +94,14 @@ class StateExtractor:
         """Check if Lange Strasse can be completed with available dice"""
         if dice_set.lange_strasse_achieved:
             return False
-
-        # Get all kept values
-        all_kept = []
-        for group in dice_set.kept_groups:
-            all_kept.extend(group)
-
-        # Get available dice values
-        available_values = dice_set.get_available_dice_values()
-
-        # Check if we can complete 1-2-3-4-5-6
-        all_values = set(all_kept + available_values)
-        return all_values.issuperset({1, 2, 3, 4, 5, 6})
+        values = flatten(dice_set.kept_groups) + dice_set.get_available_dice_values()
+        return is_lange_strasse(values)
 
     @staticmethod
     def _can_complete_talheim(dice_set) -> bool:
         """Check if Talheim can be completed with current dice"""
-        all_kept = []
-        for group in dice_set.kept_groups:
-            all_kept.extend(group)
-
-        available_values = dice_set.get_available_dice_values()
-        all_values = all_kept + available_values
-
-        if len(all_values) != 6:
-            return False
-
-        counts = Counter(all_values)
-        return len(counts) == 3 and all(count == 2 for count in counts.values())
+        values = flatten(dice_set.kept_groups) + dice_set.get_available_dice_values()
+        return talheim_score(values) > 0
 
     @staticmethod
     def to_vector(state: GameState) -> List[float]:
@@ -131,10 +113,7 @@ class StateExtractor:
             vector.append(die / 6.0)
 
         # Kept dice counts by value (6 elements)
-        all_kept = []
-        for group in state.kept_groups:
-            all_kept.extend(group)
-        kept_counts = Counter(all_kept)
+        kept_counts = Counter(flatten(state.kept_groups))
         for i in range(1, 7):
             vector.append(kept_counts.get(i, 0) / 6.0)  # Normalize by max possible
 

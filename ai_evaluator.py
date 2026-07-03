@@ -1,8 +1,7 @@
 """AI move evaluation for Lange Strasse"""
-from collections import Counter
-
 from ai_actions import Action, ActionGenerator
 from ai_state import GameState, StateExtractor
+from scoring import flatten, is_lange_strasse, score_groups, talheim_score
 
 
 class MoveEvaluator:
@@ -52,48 +51,7 @@ class MoveEvaluator:
 
     def _calculate_action_score(self, state: GameState, action: Action) -> int:
         """Calculate immediate score from keeping these dice"""
-        # Simulate adding the action to current kept groups
-        temp_groups = state.kept_groups.copy()
-        temp_groups.append(action.dice_to_keep)
-
-        # Check for special combinations first
-        all_dice = []
-        for group in temp_groups:
-            all_dice.extend(group)
-
-        # Talheim check
-        if len(all_dice) == 6:
-            counts = Counter(all_dice)
-            if len(counts) == 3 and all(count == 2 for count in counts.values()):
-                values = sorted(counts.keys())
-                if values[1] == values[0] + 1 and values[2] == values[1] + 1:
-                    return 1000  # Consecutive Talheim
-                else:
-                    return 500   # Non-consecutive Talheim
-
-        # Lange Strasse check
-        if set(all_dice).issuperset({1, 2, 3, 4, 5, 6}):
-            return 1250
-
-        # Regular scoring (simplified)
-        score = 0
-        dice_counts = Counter(all_dice)
-
-        for value, count in dice_counts.items():
-            if count >= 3:
-                base_score = 1000 if value == 1 else value * 100
-                # Each additional die doubles the score
-                for _ in range(count - 3):
-                    base_score *= 2
-                score += base_score
-                # Remove the grouped dice from individual scoring
-                dice_counts[value] = count % 3 if count < 6 else 0
-
-        # Add individual 1s and 5s
-        score += dice_counts.get(1, 0) * 100
-        score += dice_counts.get(5, 0) * 50
-
-        return score
+        return score_groups(state.kept_groups + [action.dice_to_keep])
 
     def _evaluate_risk(self, state: GameState, action: Action) -> float:
         """Evaluate risk of getting 0 points (higher = more risky)"""
@@ -113,28 +71,13 @@ class MoveEvaluator:
     def _evaluate_special_combinations(self, state: GameState, action: Action) -> float:
         """Bonus for enabling special combinations"""
         bonus = 0.0
+        combined = flatten(state.kept_groups) + list(action.dice_to_keep)
 
-        if state.can_complete_lange_strasse:
-            # Check if this action completes Lange Strasse
-            all_kept = []
-            for group in state.kept_groups:
-                all_kept.extend(group)
-            all_kept.extend(action.dice_to_keep)
+        if state.can_complete_lange_strasse and is_lange_strasse(combined):
+            bonus += 500  # Big bonus for completing Lange Strasse
 
-            if set(all_kept).issuperset({1, 2, 3, 4, 5, 6}):
-                bonus += 500  # Big bonus for completing Lange Strasse
-
-        if state.can_complete_talheim:
-            # Check if this action completes Talheim
-            all_kept = []
-            for group in state.kept_groups:
-                all_kept.extend(group)
-            all_kept.extend(action.dice_to_keep)
-
-            if len(all_kept) == 6:
-                counts = Counter(all_kept)
-                if len(counts) == 3 and all(count == 2 for count in counts.values()):
-                    bonus += 200  # Bonus for completing Talheim
+        if state.can_complete_talheim and talheim_score(combined):
+            bonus += 200  # Bonus for completing Talheim
 
         return bonus
 
@@ -144,10 +87,11 @@ class MoveEvaluator:
         current_player = state.players[state.current_player_idx]
 
         # Find highest opponent score
-        max_opponent_score = 0
-        for i, player in enumerate(state.players):
-            if i != state.current_player_idx:
-                max_opponent_score = max(max_opponent_score, player.total_score)
+        max_opponent_score = max(
+            (p.total_score for i, p in enumerate(state.players)
+             if i != state.current_player_idx),
+            default=0,
+        )
 
         # If opponents are close to winning, be more aggressive
         if max_opponent_score >= 8000:
@@ -163,19 +107,11 @@ class MoveEvaluator:
 
     def _evaluate_money_opportunity(self, state: GameState, action: Action) -> float:
         """Evaluate money-making opportunities"""
-        money_value = 0.0
-
-        # Lange Strasse gives money
-        if state.can_complete_lange_strasse:
-            all_kept = []
-            for group in state.kept_groups:
-                all_kept.extend(group)
-            all_kept.extend(action.dice_to_keep)
-
-            if set(all_kept).issuperset({1, 2, 3, 4, 5, 6}):
-                money_value += 100  # 50¢ from each opponent
-
-        return money_value
+        # Lange Strasse takes 50¢ from each opponent.
+        combined = flatten(state.kept_groups) + list(action.dice_to_keep)
+        if state.can_complete_lange_strasse and is_lange_strasse(combined):
+            return 100.0
+        return 0.0
 
 class SimpleAI:
     """Simple AI that uses the move evaluator"""

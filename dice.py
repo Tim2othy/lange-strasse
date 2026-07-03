@@ -1,7 +1,16 @@
-"""dice.py hore the DiceSet class lives"""
+"""dice.py where the DiceSet class lives"""
 import random
-from scoring import ScoreValidator, ScoreCalculator
 from collections import Counter
+
+from scoring import (
+    INDIVIDUAL_SCORE,
+    ScoreCalculator,
+    ScoreValidator,
+    flatten,
+    is_lange_strasse,
+    score_groups,
+    talheim_score,
+)
 
 class DiceSet:
     """Handle dice rolling and management"""
@@ -57,76 +66,34 @@ class DiceSet:
         return False
 
     def can_keep_any_dice(self):
-        """Check if any dice can be kept according to the rules"""
-        available_dice = [self.dice[i] for i in self.get_available_dice()]
-        if not available_dice:
-            return True  # No dice to check
+        """True if at least one legal keep exists from the available dice."""
+        available = self.get_available_dice_values()
+        if not available:
+            return True  # All dice already kept -- not a dead end.
 
-        # Get all currently kept values for validation
-        all_kept_values = []
-        for group in self.kept_groups:
-            all_kept_values.extend(group)
+        # 1s and 5s can always be kept.
+        if any(value in INDIVIDUAL_SCORE for value in available):
+            return True
 
-        # Check individual dice first (1s and 5s)
-        for die_val in available_dice:
-            if die_val == 1 or die_val == 5:
-                return True
+        kept = flatten(self.kept_groups)
 
-        # Check if keeping all available dice would complete a Lange Strasse
-        temp_kept_values = all_kept_values + available_dice
-        if set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
-            return True  # This would complete a Lange Strasse
+        # Keeping everything available could complete a Lange Strasse.
+        if is_lange_strasse(kept + available):
+            return True
 
-        # Check if we can keep any individual die based on already kept dice
-        dice_counts = {}
-        for val in available_dice:
-            dice_counts[val] = dice_counts.get(val, 0) + 1
-
-        kept_counts = {}
-        for val in all_kept_values:
-            kept_counts[val] = kept_counts.get(val, 0) + 1
-
-        for val, count in dice_counts.items():
-            # Can keep if we have 3+ of this value, or if we already have 3+ kept
-            if count >= 3 or kept_counts.get(val, 0) >= 3:
-                return True
-
-        return False
+        # A value already has (or would reach) a keepable triplet.
+        kept_counts = Counter(kept)
+        return any(count >= 3 or kept_counts.get(value, 0) >= 3
+                   for value, count in Counter(available).items())
 
     def check_lange_strasse(self):
         """Check if all dice 1-6 have been kept (Lange Strasse)"""
-        all_kept_values = []
-        for group in self.kept_groups:
-            all_kept_values.extend(group)
-
-        # Check if we have at least one of each value 1-6
-        unique_values = set(all_kept_values)
-        return unique_values == {1, 2, 3, 4, 5, 6}
+        return is_lange_strasse(flatten(self.kept_groups))
 
     def check_talheim(self):
-        """Check if we have 3 pairs (Talheim) - must be exactly 6 dice with 3 pairs"""
-        all_kept_values = []
-        for group in self.kept_groups:
-            all_kept_values.extend(group)
-
-        if len(all_kept_values) != 6:
-            return False, 0
-
-        # Count occurrences of each value
-        counts = Counter(all_kept_values)
-
-        # Check if we have exactly 3 pairs (each value appears exactly twice)
-        if len(counts) != 3 or not all(count == 2 for count in counts.values()):
-            return False, 0
-
-        # Check if pairs are consecutive
-        values = sorted(counts.keys())
-        is_consecutive = (values[1] == values[0] + 1 and values[2] == values[1] + 1)
-
-        if is_consecutive:
-            return True, 1000  # Consecutive pairs
-        else:
-            return True, 500   # Non-consecutive pairs
+        """Return ``(is_talheim, score)`` for the currently kept dice."""
+        points = talheim_score(flatten(self.kept_groups))
+        return points > 0, points
 
     def check_totale(self):
         """Check if this is a Totale (no dice can be kept on first roll)"""
@@ -153,43 +120,16 @@ class DiceSet:
             if available_counts[value] < count:
                 return False, f"Only {available_counts[value]} dice with value {value} available, but {count} requested."
 
-        # Get all currently kept values for validation
-        all_kept_values = []
-        for group in self.kept_groups:
-            all_kept_values.extend(group)
+        all_kept_values = flatten(self.kept_groups)
 
         dice_values_list = []
         for value, count in values_to_keep.items():
             dice_values_list.extend([value] * count)
 
-        # Check for special combinations first
-        temp_kept_values = all_kept_values + dice_values_list
-
-        # Check if this would be a special combination (always valid)
-        if len(temp_kept_values) == 6:
-            temp_counts = Counter(temp_kept_values)
-            is_potential_talheim = (len(temp_counts) == 3 and
-                                  all(count == 2 for count in temp_counts.values()))
-            is_potential_lange_strasse = set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6})
-
-            if is_potential_talheim or is_potential_lange_strasse:
-                # Special combinations are always valid
-                pass
-            else:
-                # Regular validation
-                is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
-                if not is_valid:
-                    return False, error_msg
-        else:
-            # Check if this would complete a Lange Strasse
-            if set(temp_kept_values).issuperset({1, 2, 3, 4, 5, 6}):
-                # This is part of a Lange Strasse - always valid
-                pass
-            else:
-                # Regular validation for non-special combinations
-                is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
-                if not is_valid:
-                    return False, error_msg
+        # Validate the keep (ScoreValidator allows Lange Strasse / Talheim too).
+        is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
+        if not is_valid:
+            return False, error_msg
 
         # Check minimum score requirement for stopping BEFORE keeping dice
         if stop_after:
@@ -211,11 +151,11 @@ class DiceSet:
         self._merge_kept_dice(dice_values_list)
 
         # Check for Talheim first (takes priority)
-        is_talheim, talheim_score = self.check_talheim()
+        is_talheim, talheim_points = self.check_talheim()
         if is_talheim:
             self.game_over = True
-            print(f"🎯 TALHEIM! Three pairs worth {talheim_score} points! 🎯")
-            return True, f"TALHEIM_{talheim_score}"
+            print(f"🎯 TALHEIM! Three pairs worth {talheim_points} points! 🎯")
+            return True, f"TALHEIM_{talheim_points}"
 
         # Check for Lange Strasse
         if self.check_lange_strasse():
@@ -255,16 +195,8 @@ class DiceSet:
         return True, "Dice kept successfully"
 
     def get_current_score(self):
-        """Get the score for the current dice set (this sub-round only)"""
-        # Special combinations score a fixed amount and take priority.
-        is_talheim, talheim_score = self.check_talheim()
-        if is_talheim:
-            return talheim_score
-
-        if self.check_lange_strasse():
-            return 1250
-
-        return ScoreCalculator.calculate_score_from_groups(self.kept_groups)
+        """Get the score for the current dice set (this sub-round only)."""
+        return score_groups(self.kept_groups)
 
     def _merge_kept_dice(self, new_dice_values):
         """Add new dice values, only merging when it creates a scoring advantage"""

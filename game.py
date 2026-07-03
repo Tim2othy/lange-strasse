@@ -33,26 +33,24 @@ class Game:
         self.turn_number = 1
         self.someone_reached_10k = False  # Track if anyone reached 10k
 
-    def handle_lange_strasse(self, is_super=False):
-        """Handle Lange Strasse money distribution"""
-        current_player = self.get_current_player()
-        money_amount = 100 if is_super else 50
+    def _opponents(self):
+        """All players other than the current one."""
+        return [p for p in self.players if p is not self.get_current_player()]
 
-        # Current player gains money from each other player
-        for i, player in enumerate(self.players):
-            if i != self.current_player_idx:
-                player.add_money(-money_amount)
-                current_player.add_money(money_amount)
+    def handle_lange_strasse(self, is_super=False):
+        """Current player collects 50¢ (100¢ for a Super Strasse) from each opponent."""
+        current_player = self.get_current_player()
+        amount = 100 if is_super else 50
+        for opponent in self._opponents():
+            opponent.add_money(-amount)
+            current_player.add_money(amount)
 
     def handle_totale(self):
-        """Handle Totale money penalty"""
+        """Current player pays 50¢ to each opponent."""
         current_player = self.get_current_player()
-
-        # Current player loses 50¢ to each other player
-        for i, player in enumerate(self.players):
-            if i != self.current_player_idx:
-                player.add_money(50)
-                current_player.add_money(-50)
+        for opponent in self._opponents():
+            opponent.add_money(50)
+            current_player.add_money(-50)
 
     def end_turn(self, turn_score):
         """End current player's turn and add score"""
@@ -153,10 +151,8 @@ class Game:
         print(f"\n--- {current_player.name}'s turn ---")
 
         # Show all players' scores
-        score_display = []
-        for player in self.players:
-            score_display.append(f"{player.name}: {player.total_score}")
-        print(f"Current scores: {', '.join(score_display)}")
+        scores = ', '.join(f"{p.name}: {p.total_score}" for p in self.players)
+        print(f"Current scores: {scores}")
 
         # Check for Totale at start of turn
         if self.dice_set.check_totale():

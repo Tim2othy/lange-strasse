@@ -1,103 +1,107 @@
-"""scoring.py"""
+"""scoring.py -- the single source of truth for Lange Strasse scoring and rules."""
 from collections import Counter
 
+# Face values that make up a Lange Strasse (1-2-3-4-5-6).
+LANGE_STRASSE = frozenset({1, 2, 3, 4, 5, 6})
+LANGE_STRASSE_SCORE = 1250
+
+# Points for a single die kept on its own (only 1s and 5s can be kept individually).
+INDIVIDUAL_SCORE = {1: 100, 5: 50}
+# Base score for three of a kind (each extra die doubles it). Others: value * 100.
+TRIPLET_BASE = {1: 1000, 5: 500}
+
+
+def flatten(groups):
+    """Flatten a list of dice groups into a single list of values."""
+    return [value for group in groups for value in group]
+
+
+def is_lange_strasse(values):
+    """True if ``values`` contains at least one of every face 1-6."""
+    return LANGE_STRASSE.issubset(values)
+
+
+def talheim_score(values):
+    """Score for a Talheim (three pairs across exactly 6 dice); 0 if it isn't one.
+
+    1000 points if the three pairs are consecutive, otherwise 500.
+    """
+    if len(values) != 6:
+        return 0
+    counts = Counter(values)
+    if len(counts) != 3 or any(count != 2 for count in counts.values()):
+        return 0
+    low, mid, high = sorted(counts)
+    return 1000 if (mid == low + 1 and high == mid + 1) else 500
+
+
+def score_groups(kept_groups):
+    """Total score for kept dice groups, accounting for Talheim / Lange Strasse."""
+    values = flatten(kept_groups)
+
+    talheim = talheim_score(values)
+    if talheim:
+        return talheim
+
+    if is_lange_strasse(values):
+        return LANGE_STRASSE_SCORE
+
+    return ScoreCalculator.calculate_score_from_groups(kept_groups)
+
+
 class ScoreValidator:
-    """Validate which dice combinations can be kept according to Lange Strasse rules"""
+    """Validate which dice combinations can be kept according to the rules."""
 
     @staticmethod
-    def is_valid_keep(dice_values, already_kept_dice=None):
-        """
-        Check if a combination of dice values is valid to keep.
+    def is_valid_keep(dice_values, already_kept=None):
+        """Return ``(is_valid, error_message)`` for keeping ``dice_values``.
+
         Rules:
-        - Any number of 1s or 5s can be kept
-        - Any group of 3 or more identical dice can be kept
-        - If you already have 3+ of a kind kept, you can keep more of that kind
-        - Cannot keep dice that don't follow these rules
-
-        Args:
-            dice_values: List of dice values to check
-            already_kept_dice: List of dice values already kept (for checking existing groups)
-
-        Returns:
-            (bool, str): (is_valid, error_message)
+        - Any number of 1s or 5s can be kept.
+        - A group of 3+ identical dice can be kept.
+        - If 3+ of a value are already kept, more of it can be added.
+        - Completing a Lange Strasse or Talheim is always allowed.
         """
         if not dice_values:
             return True, ""
 
-        # Count what's already been kept
-        kept_counts = Counter(already_kept_dice) if already_kept_dice else Counter()
+        already_kept = already_kept or []
 
-        # Count occurrences of each die value being kept now
-        counts = Counter(dice_values)
+        # Special combinations are always legal, whatever the individual dice are.
+        combined = list(already_kept) + list(dice_values)
+        if is_lange_strasse(combined) or talheim_score(combined):
+            return True, ""
 
-        for value, count in counts.items():
-            if value == 1 or value == 5:
-                # 1s and 5s can always be kept in any quantity
+        kept_counts = Counter(already_kept)
+        for value, count in Counter(dice_values).items():
+            if value in INDIVIDUAL_SCORE:
                 continue
-            elif count >= 3:
-                # Groups of 3+ identical dice can be kept
+            if count >= 3 or kept_counts.get(value, 0) >= 3:
                 continue
-            elif kept_counts.get(value, 0) >= 3:
-                # We already have 3+ of this value kept, so we can keep more
-                continue
-            else:
-                # This die value appears less than 3 times and we don't have 3+ already kept
-                return False, f"Cannot keep {count} die/dice with value {value}. Need at least 3 of the same value (except 1s and 5s)."
-
+            return False, (
+                f"Cannot keep {count} die/dice with value {value}. "
+                "Need at least 3 of the same value (except 1s and 5s)."
+            )
         return True, ""
 
+
 class ScoreCalculator:
-    """Calculate points based on dice combinations"""
+    """Calculate points based on dice combinations."""
 
     @staticmethod
     def calculate_score_from_groups(kept_groups):
+        """Total score for kept groups, ignoring Talheim / Lange Strasse specials.
+
+        Used where the caller only cares about the plain triplet/individual score
+        (e.g. the 300-point minimum needed to stop). Use :func:`score_groups` for
+        the full score that includes special combinations.
         """
-        Calculate score for kept dice values.
-
-        Rules:
-        - Individual 1s: 100 points each
-        - Individual 5s: 50 points each
-        - Three of a kind: number * 100 (except 1s = 1000, 5s = 500)
-        - Four of a kind: double the three of a kind score
-        - Five of a kind: double the four of a kind score, etc.
-
-        Args:
-            kept_groups: List of lists, each containing dice values kept together
-
-        Returns:
-            int: Total score
-        """
-        if not kept_groups:
-            return 0
-
-        total_score = 0
-
+        total = 0
         for group in kept_groups:
-            if not group:
-                continue
-
-            counts = Counter(group)
-
-            for value, count in counts.items():
+            for value, count in Counter(group).items():
                 if count >= 3:
-                    # Three or more of a kind kept together - use triplet scoring
-                    if value == 1:
-                        base_score = 1000
-                    elif value == 5:
-                        base_score = 500
-                    else:
-                        base_score = value * 100
-
-                    # Double for each additional die beyond 3
-                    score = base_score * (2 ** (count - 3))
-                    total_score += score
-
+                    base = TRIPLET_BASE.get(value, value * 100)
+                    total += base * 2 ** (count - 3)
                 else:
-                    # Individual scoring for 1s and 5s only
-                    if value == 1:
-                        total_score += count * 100
-                    elif value == 5:
-                        total_score += count * 50
-                    # Other values can't be kept individually (validation prevents this)
-
-        return total_score
+                    total += count * INDIVIDUAL_SCORE.get(value, 0)
+        return total
