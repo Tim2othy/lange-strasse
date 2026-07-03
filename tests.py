@@ -4,16 +4,20 @@ Comprehensive tests for Lange Strasse game mechanics
 import unittest
 
 from dice import DiceSet
-from game import Game, Player
+from game import Player, TheGame
 
 
 class TestLangeStrasseGameMechanics(unittest.TestCase):
 
     def setUp(self):
         """Set up a fresh game for each test"""
-        self.game = Game()
+        self.game = TheGame()
         # Override players with test names
-        self.game.players = [Player("Test Player 1"), Player("Test Player 2"), Player("Test Player 3")]
+        self.game.players = [
+            Player("Test Player 1"),
+            Player("Test Player 2"),
+            Player("Test Player 3"),
+        ]
         for player in self.game.players:
             player.has_strich = False
 
@@ -139,7 +143,9 @@ class TestLangeStrasseGameMechanics(unittest.TestCase):
         self.game.handle_totale()
 
         # Verify money changes: current player loses 50¢ to each other player
-        self.assertEqual(current_player.money, initial_money_current - 100)  # -50 to each of 2 players
+        self.assertEqual(
+            current_player.money, initial_money_current - 100
+        )  # -50 to each of 2 players
         for i, player in enumerate(other_players):
             self.assertEqual(player.money, initial_money_others[i] + 50)
 
@@ -196,7 +202,6 @@ class TestLangeStrasseGameMechanics(unittest.TestCase):
         self.assertTrue(success)
         self.assertTrue(dice_set.lange_strasse_achieved)
         self.assertFalse(dice_set.super_strasse_achieved)  # Not super on 1st roll
-
 
         # Test 2nd roll Strasse (normal)
         dice_set = DiceSet()
@@ -257,12 +262,14 @@ class TestLangeStrasseGameMechanics(unittest.TestCase):
         self.assertTrue(success)
 
         # Verify normal Strasse money (50¢ from each)
-        self.assertEqual(current_player.money, initial_money_current + 100)  # +50 from each of 2 players
+        self.assertEqual(
+            current_player.money, initial_money_current + 100
+        )  # +50 from each of 2 players
         for i, player in enumerate(other_players):
             self.assertEqual(player.money, initial_money_others[i] - 50)
 
         # Test Super Strasse (100¢ from each player)
-        self.game = Game()  # Fresh game
+        self.game = TheGame()  # Fresh game
         dice_set = self.game.dice_set
 
         # Set up for 3rd roll Super Strasse
@@ -389,7 +396,7 @@ class TestWinningMechanics(unittest.TestCase):
 
     def setUp(self):
         """Set up a fresh game for each test"""
-        self.game = Game()
+        self.game = TheGame()
         # Override players with test names
         self.game.players = [Player("Winner"), Player("Second"), Player("Third")]
         for player in self.game.players:
