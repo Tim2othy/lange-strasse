@@ -1,7 +1,6 @@
 """main.py"""
 
-from ai_player import AIPlayer, create_mixed_game
-from game import Game
+from game import TheGame
 from nn_state import NNStateExtractor
 
 

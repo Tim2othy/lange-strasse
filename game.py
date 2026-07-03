@@ -20,7 +20,7 @@ class Player:
             print(f"💸 {self.name} loses {abs(cents)}¢!")
 
 
-class Game:
+class TheGame:
     """Main game controller for 3-player Lange Strasse"""
 
     def __init__(self):
