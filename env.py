@@ -9,9 +9,13 @@ decision to make) are auto-resolved inside ``reset``/``step`` so every observati
 handed back is a real decision point.
 """
 
+import time
+from collections import Counter
+
 import log
 from ai_actions import Action, ActionGenerator
-from config import N_GAMES
+from ai_evaluator import random_action, simple_action
+from config import N_GAMES, VERBOSE
 from game import TheGame
 from game_state import GameState, StateExtractor
 
@@ -19,8 +23,7 @@ from game_state import GameState, StateExtractor
 class LangeStrasseEnv:
     """One ``step`` == one player's single keep/stop decision."""
 
-    def __init__(self, verbose: bool = False):
-        self.verbose = verbose
+    def __init__(self):
         self.game: TheGame | None = None
         self.reset()
 
@@ -29,7 +32,7 @@ class LangeStrasseEnv:
     # ------------------------------------------------------------------ #
     def reset(self) -> GameState:
         """Start a fresh game and return the first decision-point observation."""
-        log.set_verbose(self.verbose)
+        log.set_verbose(VERBOSE)
         self.game = TheGame(choice=1)  # plain players; the env supplies the actions
         self.game.start_new_turn()
         self._advance_to_decision()
@@ -106,13 +109,13 @@ class LangeStrasseEnv:
         ]
 
 
-def play_game(policies, verbose: bool = False) -> list[dict]:
+def play_game(policies) -> list[dict]:
     """Play one full game headlessly.
 
     ``policies`` is one callable per seat with signature ``(state, actions) -> action``
     (e.g. ``random_action`` / ``simple_action``). Returns the final standings.
     """
-    env = LangeStrasseEnv(verbose=verbose)
+    env = LangeStrasseEnv()
     state = env.observe()
     while not env.done:
         actions = env.legal_actions()
@@ -123,10 +126,6 @@ def play_game(policies, verbose: bool = False) -> list[dict]:
 
 if __name__ == "__main__":
     # Quick smoke test / demo: simulate a batch of games silently.
-    import time
-    from collections import Counter
-
-    from ai_evaluator import random_action, simple_action
 
     seats = [simple_action, random_action, random_action]
 
