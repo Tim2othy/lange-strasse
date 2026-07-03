@@ -1,7 +1,7 @@
 """AI move evaluation for Lange Strasse"""
 
 from ai_actions import Action
-from ai_state import GameState, StateExtractor
+from game_state import GameState, StateExtractor
 from scoring import flatten, is_lange_strasse, score_groups, talheim_score
 
 

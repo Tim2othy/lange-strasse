@@ -2,10 +2,10 @@
 
 from ai_actions import ActionGenerator
 from ai_player import AIPlayer
-from ai_state import StateExtractor
-from game import TheGame
-from nn_state import NNStateExtractor
 from config import AIS_PLAY, ALGOS
+from game import TheGame
+from game_state import StateExtractor
+from nn_state import NNStateExtractor
 
 
 def main():
