@@ -1,4 +1,6 @@
 """game.py where the game is on"""
+
+from ai_player import AIPlayer
 from dice import DiceSet
 
 
@@ -23,7 +25,7 @@ class Player:
 class TheGame:
     """Main game controller for 3-player Lange Strasse"""
 
-    def __init__(self):
+    def __init__(self, choice):
         self.players = [Player("Player 1"), Player("Player 2"), Player("Player 3")]
         self.current_player_idx = 0
         self.dice_set = DiceSet()
@@ -33,6 +35,17 @@ class TheGame:
         self.starting_player_idx = 0
         self.turn_number = 1
         self.someone_reached_10k = False  # Track if anyone reached 10k
+
+        if choice == 1:
+            pass
+        elif choice == 2:
+            self.players[1] = AIPlayer("AI Player 2")
+            self.players[2] = AIPlayer("AI Player 3")
+        elif choice == 3:
+            self.players[2] = AIPlayer("AI Player 3")
+        elif choice == 4:
+            for i in range(3):
+                self.players[i] = AIPlayer(f"AI Player {i+1}")
 
     def _opponents(self):
         """All players other than the current one."""

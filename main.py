@@ -23,22 +23,8 @@ def main():
         except ValueError:
             print("Please enter a valid number")
 
-    game = None
-
     # Create game based on choice
-    if choice == 1:
-        game = Game()  # All human players
-    elif choice == 2:
-        game = Game()
-        game.players[1] = AIPlayer("AI Player 2")
-        game.players[2] = AIPlayer("AI Player 3")
-    elif choice == 3:
-        game = Game()
-        game.players[2] = AIPlayer("AI Player 3")
-    elif choice == 4:
-        game = create_mixed_game(3)  # All AI players
-
-    assert game is not None, "Game creation failed"
+    game = TheGame(choice)
 
     print("Goal: First to 10,000 points wins!")
     print("Commands: 'keep <values>', 'keep <values> stop', 'quit'")
