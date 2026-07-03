@@ -167,6 +167,23 @@ class TheGame:
         """Get the current player object"""
         return self.players[self.current_player_idx]
 
+    def advance_to_decision(self):
+        """Resolve forced turn-endings until a real decision is needed or the game ends.
+
+        A player with no keepable dice ends their turn immediately (paying the
+        Totale penalty if it happened on the first roll); several dead turns in a
+        row are all skipped. Afterwards, either ``game_over`` is set or the
+        current player has at least one legal action.
+        """
+        while not self.game_over:
+            dice_set = self.dice_set
+            if dice_set.game_over or not dice_set.can_keep_any_dice():
+                if dice_set.check_totale():
+                    self.handle_totale()
+                self.end_turn(0)
+                continue
+            break
+
     def process_dice_action(self, dice_values, stop_after):
         """Unified processing for both AI and human dice actions"""
         was_lange_strasse_achieved = self.dice_set.lange_strasse_achieved

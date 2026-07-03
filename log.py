@@ -1,20 +1,14 @@
 """Tiny logging shim so game logic can be silenced during simulation/training.
 
-Game/dice/player code calls ``log(...)`` instead of ``print(...)``. Interactive
-play leaves VERBOSE=True (the default); the headless env sets it False so
-millions of simulated games produce no output.
+Game/dice/player code calls ``log(...)`` instead of ``print(...)``. Whether it
+prints is decided once, by ``VERBOSE`` in config.py: set it False to run silent
+(e.g. a big batch of simulated games), True to watch play-by-play.
 """
 
 from config import VERBOSE
 
 
-def set_verbose(flag: bool) -> None:
-    """Enable or disable game-logic output globally."""
-    global VERBOSE
-    VERBOSE = flag
-
-
 def log(*args, **kwargs) -> None:
-    """print() that obeys the global VERBOSE flag."""
+    """print() that stays silent unless config.VERBOSE is set."""
     if VERBOSE:
         print(*args, **kwargs)
