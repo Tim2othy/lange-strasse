@@ -1,9 +1,10 @@
 """AI state representation for Lange Strasse"""
+from collections import Counter
 from dataclasses import dataclass
 from typing import List
-from collections import Counter
 
 from scoring import flatten, is_lange_strasse, talheim_score
+
 
 @dataclass
 class PlayerState:

@@ -1,8 +1,10 @@
 """Simplified state representation for neural network training"""
+from collections import Counter
 from dataclasses import dataclass
 from typing import List, Tuple
+
 import numpy as np
-from collections import Counter
+
 
 @dataclass
 class NNState:

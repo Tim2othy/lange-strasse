@@ -1,7 +1,8 @@
 """AI player integration for Lange Strasse"""
-from game import Player
-from ai_evaluator import SimpleAI
 from ai_actions import Action
+from ai_evaluator import SimpleAI
+from game import Player
+
 
 class AIPlayer(Player):
     """AI-controlled player"""

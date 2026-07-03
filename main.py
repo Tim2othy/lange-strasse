@@ -83,7 +83,7 @@ def main():
         current_player = game.get_current_player()
 
         # Check if current player is AI
-        if hasattr(current_player, 'is_ai') and current_player.is_ai:
+        if hasattr(current_player, "is_ai") and current_player.is_ai:
             # AI player's turn. The guard above guarantees at least one legal
             # move, so choose_action always returns an Action here.
             assert current_player is AIPlayer
@@ -94,7 +94,9 @@ def main():
             print(explanation)
 
             # Execute AI action using unified method
-            success, result = game.process_dice_action(action.dice_to_keep, action.stop_after)
+            success, result = game.process_dice_action(
+                action.dice_to_keep, action.stop_after
+            )
 
             if success:
                 if result == "continue_turn":
@@ -110,21 +112,23 @@ def main():
         # Human player's turn
         command = input(f"\n{current_player.name}, enter command: ").strip().lower()
 
-        if command == 'quit':
+        if command == "quit":
             print("Game ended!")
             break
 
-        elif command.startswith('keep'):
+        elif command.startswith("keep"):
             try:
                 parts = command.split()
                 if len(parts) == 1:
-                    print("Please specify which dice values to keep (e.g., 'keep 1 5 5')")
+                    print(
+                        "Please specify which dice values to keep (e.g., 'keep 1 5 5')"
+                    )
                     continue
 
                 # Check if 'stop' is in the command
-                stop_after = 'stop' in parts
+                stop_after = "stop" in parts
                 if stop_after:
-                    parts.remove('stop')
+                    parts.remove("stop")
 
                 if len(parts) == 1:  # Only 'keep' and 'stop'
                     print("Please specify which dice values to keep before 'stop'")
@@ -144,9 +148,9 @@ def main():
 
                 if success:
                     # Print state AFTER the dice are kept and processed
-                    print("\n" + "="*50)
+                    print("\n" + "=" * 50)
                     print("GAME STATE AFTER MOVE:")
-                    print("="*50)
+                    print("=" * 50)
 
                     state = NNStateExtractor.extract_state(game)
                     print(f"Available dice:      {state.available_dice}")
@@ -159,7 +163,7 @@ def main():
                     print(f"Player strich:       {state.player_strich}")
                     print(f"Turn number:         {state.turn_number}")
                     print(f"Your player number:  {state.your_player_number}")
-                    print("="*50)
+                    print("=" * 50)
 
                     if result == "continue_turn":
                         print()
@@ -170,9 +174,11 @@ def main():
                     print(f"Error: {result}")
 
             except ValueError:
-                print("Invalid input. Use dice values only (e.g., 'keep 1 5 5' or 'keep 1 1 1 stop')")
+                print(
+                    "Invalid input. Use dice values only (e.g., 'keep 1 5 5' or 'keep 1 1 1 stop')"
+                )
 
-        elif command.startswith('force'):
+        elif command.startswith("force"):
             # Debug command: force next dice roll
             try:
                 parts = command.split()
@@ -187,9 +193,14 @@ def main():
             except ValueError:
                 print("Invalid values for force command")
 
-        elif command == 'hint' and hasattr(current_player, 'is_ai') and not current_player.is_ai:
+        elif (
+            command == "hint"
+            and hasattr(current_player, "is_ai")
+            and not current_player.is_ai
+        ):
             # Give AI hint to human player
             from ai_evaluator import SimpleAI
+
             temp_ai = SimpleAI()
             suggested_action = temp_ai.choose_action(game)
             if suggested_action:
@@ -200,7 +211,10 @@ def main():
                 print("No valid moves available")
 
         else:
-            print("Unknown command. Available: 'keep <values>', 'keep <values> stop', 'hint', 'quit'")
+            print(
+                "Unknown command. Available: 'keep <values>', 'keep <values> stop', 'hint', 'quit'"
+            )
+
 
 if __name__ == "__main__":
     main()

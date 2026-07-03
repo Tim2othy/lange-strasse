@@ -5,6 +5,7 @@ from typing import List
 
 from scoring import ScoreCalculator, ScoreValidator, flatten
 
+
 @dataclass
 class Action:
     """Represents a possible action the AI can take"""

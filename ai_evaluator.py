@@ -1,4 +1,5 @@
 """AI move evaluation for Lange Strasse"""
+
 from ai_actions import Action, ActionGenerator
 from ai_state import GameState, StateExtractor
 from scoring import flatten, is_lange_strasse, score_groups, talheim_score
@@ -9,11 +10,11 @@ class MoveEvaluator:
 
     def __init__(self):
         self.weights = {
-            'expected_score': 1.0,
-            'risk_factor': 0.5,
-            'special_bonus': 2.0,
-            'endgame_urgency': 1.5,
-            'money_opportunity': 0.3
+            "expected_score": 1.0,
+            "risk_factor": 0.5,
+            "special_bonus": 2.0,
+            "endgame_urgency": 1.5,
+            "money_opportunity": 0.3,
         }
 
     def evaluate_action(self, state: GameState, action: Action) -> float:
@@ -21,19 +22,31 @@ class MoveEvaluator:
         score = 0.0
 
         # Expected score component
-        score += self._evaluate_expected_score(state, action) * self.weights['expected_score']
+        score += (
+            self._evaluate_expected_score(state, action)
+            * self.weights["expected_score"]
+        )
 
         # Risk factor (probability of getting 0 points)
-        score -= self._evaluate_risk(state, action) * self.weights['risk_factor']
+        score -= self._evaluate_risk(state, action) * self.weights["risk_factor"]
 
         # Special combination bonus
-        score += self._evaluate_special_combinations(state, action) * self.weights['special_bonus']
+        score += (
+            self._evaluate_special_combinations(state, action)
+            * self.weights["special_bonus"]
+        )
 
         # Endgame urgency
-        score += self._evaluate_endgame_urgency(state, action) * self.weights['endgame_urgency']
+        score += (
+            self._evaluate_endgame_urgency(state, action)
+            * self.weights["endgame_urgency"]
+        )
 
         # Money opportunity
-        score += self._evaluate_money_opportunity(state, action) * self.weights['money_opportunity']
+        score += (
+            self._evaluate_money_opportunity(state, action)
+            * self.weights["money_opportunity"]
+        )
 
         return score
 
@@ -59,7 +72,9 @@ class MoveEvaluator:
             return 0.0  # No risk if stopping
 
         # Risk increases with fewer dice remaining and current score
-        remaining_dice = sum(1 for d in state.available_dice if d > 0) - len(action.dice_to_keep)
+        remaining_dice = sum(1 for d in state.available_dice if d > 0) - len(
+            action.dice_to_keep
+        )
 
         if remaining_dice <= 2:
             return 0.8  # High risk with few dice
@@ -88,8 +103,11 @@ class MoveEvaluator:
 
         # Find highest opponent score
         max_opponent_score = max(
-            (p.total_score for i, p in enumerate(state.players)
-             if i != state.current_player_idx),
+            (
+                p.total_score
+                for i, p in enumerate(state.players)
+                if i != state.current_player_idx
+            ),
             default=0,
         )
 
@@ -113,6 +131,7 @@ class MoveEvaluator:
             return 100.0
         return 0.0
 
+
 class SimpleAI:
     """Simple AI that uses the move evaluator"""
 
@@ -130,7 +149,7 @@ class SimpleAI:
 
         # Evaluate all actions
         best_action = None
-        best_score = float('-inf')
+        best_score = float("-inf")
 
         for action in valid_actions:
             score = self.evaluator.evaluate_action(state, action)
