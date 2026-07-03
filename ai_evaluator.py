@@ -53,8 +53,10 @@ class MoveEvaluator:
     def _evaluate_expected_score(self, state: GameState, action: Action) -> float:
         """Evaluate expected score from this action"""
         if action.stop_after:
-            # If stopping, return the guaranteed score
-            return state.turn_score + self._calculate_action_score(state, action)
+            # If stopping, the guaranteed score is everything banked so far this
+            # turn plus this set's score (which _calculate_action_score already
+            # includes the currently-kept dice, so use accumulated, not total).
+            return state.turn_accumulated_score + self._calculate_action_score(state, action)
         else:
             # If continuing, estimate expected value
             immediate_score = self._calculate_action_score(state, action)
@@ -72,9 +74,7 @@ class MoveEvaluator:
             return 0.0  # No risk if stopping
 
         # Risk increases with fewer dice remaining and current score
-        remaining_dice = sum(1 for d in state.available_dice if d > 0) - len(
-            action.dice_to_keep
-        )
+        remaining_dice = len(state.available_dice) - len(action.dice_to_keep)
 
         if remaining_dice <= 2:
             return 0.8  # High risk with few dice
@@ -113,7 +113,7 @@ class MoveEvaluator:
 
         # If opponents are close to winning, be more aggressive
         if max_opponent_score >= 8000:
-            if action.stop_after and state.turn_score >= 300:
+            if action.stop_after and state.total_turn_score >= 300:
                 urgency += 100  # Take guaranteed points
 
         # If we're close to winning, be more conservative

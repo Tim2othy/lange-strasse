@@ -35,6 +35,25 @@ def talheim_score(values):
     return 1000 if (mid == low + 1 and high == mid + 1) else 500
 
 
+def can_keep_any(available, kept):
+    """True if at least one legal keep exists from ``available`` given ``kept`` values."""
+    if not available:
+        return True  # Nothing available to keep is not a dead end (all 6 already kept).
+
+    # 1s and 5s can always be kept.
+    if any(value in INDIVIDUAL_SCORE for value in available):
+        return True
+
+    # Keeping everything available could complete a Lange Strasse.
+    if is_lange_strasse(list(kept) + list(available)):
+        return True
+
+    # A value already has (or would reach) a keepable triplet.
+    kept_counts = Counter(kept)
+    return any(count >= 3 or kept_counts.get(value, 0) >= 3
+               for value, count in Counter(available).items())
+
+
 def score_groups(kept_groups):
     """Total score for kept dice groups, accounting for Talheim / Lange Strasse."""
     values = flatten(kept_groups)

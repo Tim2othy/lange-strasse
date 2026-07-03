@@ -6,6 +6,7 @@ from scoring import (
     INDIVIDUAL_SCORE,
     ScoreCalculator,
     ScoreValidator,
+    can_keep_any,
     flatten,
     is_lange_strasse,
     talheim_score,
@@ -67,24 +68,7 @@ class DiceSet:
 
     def can_keep_any_dice(self):
         """True if at least one legal keep exists from the available dice."""
-        available = self.get_available_dice_values()
-        if not available:
-            return True  # All dice already kept -- not a dead end.
-
-        # 1s and 5s can always be kept.
-        if any(value in INDIVIDUAL_SCORE for value in available):
-            return True
-
-        kept = flatten(self.kept_groups)
-
-        # Keeping everything available could complete a Lange Strasse.
-        if is_lange_strasse(kept + available):
-            return True
-
-        # A value already has (or would reach) a keepable triplet.
-        kept_counts = Counter(kept)
-        return any(count >= 3 or kept_counts.get(value, 0) >= 3
-                   for value, count in Counter(available).items())
+        return can_keep_any(self.get_available_dice_values(), flatten(self.kept_groups))
 
     def check_lange_strasse(self):
         """Check if all dice 1-6 have been kept (Lange Strasse)"""
