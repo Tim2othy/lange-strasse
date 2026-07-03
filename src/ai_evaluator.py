@@ -38,9 +38,3 @@ def best_action(state: GameState, actions: list[Action], algorithm: str) -> Acti
     text = "No valid action found despite valid_actions being non-empty."
     assert best_action is not None, text
     return best_action
-
-    def get_action_explanation(self, game, action: Action) -> str:
-        """Get explanation for why this action was chosen"""
-        # state = StateExtractor.extract_state(game)
-        # score = self.evaluator.evaluate_action(state, action)
-        return f"AI chose: {action} (score: {score:.2f})"
