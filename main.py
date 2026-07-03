@@ -1,6 +1,5 @@
 """Main loop for game, nothing else."""
 
-from ai_evaluator import SimpleAI
 from ai_player import AIPlayer
 from game import TheGame
 from nn_state import NNStateExtractor
@@ -182,14 +181,15 @@ def main():
         elif command == "hint" and not isinstance(current_player, AIPlayer):
             # Give AI hint to human player
 
-            temp_ai = SimpleAI()
-            suggested_action = temp_ai.choose_action(game)
-            if suggested_action:
-                explanation = temp_ai.get_action_explanation(game, suggested_action)
-                print(f"AI suggests: {suggested_action}")
-                print(explanation)
-            else:
-                print("No valid moves available")
+            # temp_ai = SimpleAI()
+            # suggested_action = temp_ai.choose_action(game)
+            # if suggested_action:
+            #    explanation = temp_ai.get_action_explanation(game, suggested_action)
+            #    print(f"AI suggests: {suggested_action}")
+            #    print(explanation)
+            # else:
+            #    print("No valid moves available")
+            print("not implemented yet")
 
         else:
             print(

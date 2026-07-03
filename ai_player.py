@@ -37,6 +37,6 @@ class AIPlayer(Player):
         """Let the AI choose an action"""
         return self.ai.choose_action(game)
 
-    def get_explanation(self, game, action: Action) -> str:
+    def get_explanation(self, game, action: Action):
         """Get explanation for the AI's choice"""
-        return self.ai.get_action_explanation(game, action)
+        return
