@@ -1,6 +1,6 @@
 """AI move evaluation for Lange Strasse"""
 
-from ai_actions import Action, ActionGenerator
+from ai_actions import Action
 from ai_state import GameState, StateExtractor
 from scoring import flatten, is_lange_strasse, score_groups, talheim_score
 
@@ -130,6 +130,13 @@ class MoveEvaluator:
         if state.can_complete_lange_strasse and is_lange_strasse(combined):
             return 100.0
         return 0.0
+
+
+def random_action(state, valid_actions) -> Action:
+    """Choose a random valid action"""
+    import random
+
+    return random.choice(valid_actions)
 
 
 def simple_action(state, valid_actions) -> Action:

@@ -1,7 +1,7 @@
 """Player and AIPlayer Classes"""
 
 from ai_actions import Action
-from ai_evaluator import simple_action
+from ai_evaluator import random_action, simple_action
 
 
 class Player:
@@ -36,6 +36,8 @@ class AIPlayer(Player):
         match self.ai_type:
             case "simple":
                 return simple_action(game_state, actions)
+            case "random":
+                return random_action(game_state, actions)
             case _:
                 raise ValueError(f"Unknown AI type: {self.ai_type}")
 
