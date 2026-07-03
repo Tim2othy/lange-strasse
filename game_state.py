@@ -1,28 +1,47 @@
-"""AI state representation for Lange Strasse"""
+"""Canonical game-state snapshot and its ML feature encoding.
+
+Design: ``GameState`` stores only the *minimal, non-derivable* ("Markov") state
+of a decision point. Anything computable from those fields is exposed as a
+``@property`` (computed on access, so it can never go stale) rather than being
+stored. The rich, redundant representation a learning model wants lives in
+``to_vector`` -- that's the right place for derived features, because handing a
+network the score/flags directly makes it learn far faster than re-deriving them.
+"""
+
 from collections import Counter
 from dataclasses import dataclass
 from typing import List
 
-from scoring import flatten, is_lange_strasse, talheim_score
+from scoring import (
+    can_keep_any,
+    flatten,
+    is_lange_strasse,
+    score_groups,
+    talheim_score,
+)
 
 
 @dataclass
 class PlayerState:
-    """State information for a single player"""
+    """State information for a single player."""
     total_score: int
     has_strich: bool
     money: int
 
 @dataclass
 class GameState:
-    """Complete game state for AI decision making. Should only include most basic information, nothing derived or calculated."""
+    """Canonical snapshot of one decision point.
+
+    Only non-derivable fields are stored. Derived quantities (current-set score,
+    whether a special can be completed, ...) are ``@property`` views below.
+    """
     # Dice information
-    available_dice: List[int]  # Values of available dice (0 means not available)
+    available_dice: List[int]  # values available to keep this roll, e.g. [1, 4]
     kept_groups: List[List[int]]  # Groups of kept dice
 
-    # Scoring this turn
-    turn_score: int  # Accumulated score from previous dice sets in this turn
-    current_set_score: int  # Score from current dice set only
+    # Turn history
+    turn_accumulated_score: int  # points banked from previous sets this turn
+    roll_count: int  # rolls in the current set (needed for Super Strasse)
 
     # Player information
     players: List[PlayerState]
@@ -33,11 +52,35 @@ class GameState:
     turn_number: int
     is_final_round: bool
 
-    # Special flags
-    lange_strasse_achieved: bool
-    can_complete_lange_strasse: bool
-    can_complete_talheim: bool
-    is_totale_risk: bool
+    # ------------------------------------------------------------------ #
+    # Derived views: computed, never stored -> never inconsistent.
+    # ------------------------------------------------------------------ #
+    @property
+    def current_player(self) -> PlayerState:
+        return self.players[self.current_player_idx]
+
+    @property
+    def current_set_score(self) -> int:
+        """Score of the current dice set (a pure function of kept_groups)."""
+        return score_groups(self.kept_groups)
+
+    @property
+    def total_turn_score(self) -> int:
+        """Everything the current player would bank by stopping right now."""
+        return self.turn_accumulated_score + self.current_set_score
+
+    @property
+    def can_complete_lange_strasse(self) -> bool:
+        return is_lange_strasse(flatten(self.kept_groups) + self.available_dice)
+
+    @property
+    def can_complete_talheim(self) -> bool:
+        return talheim_score(flatten(self.kept_groups) + self.available_dice) > 0
+
+    @property
+    def can_keep_any(self) -> bool:
+        return can_keep_any(self.available_dice, flatten(self.kept_groups))
+
 
 """
 Example GameState
@@ -64,105 +107,65 @@ Example GameState
 
 
 class StateExtractor:
-    """Extract AI state from game objects"""
+    """Build a GameState from a live game, and encode it for ML models."""
 
     @staticmethod
     def extract_state(game) -> GameState:
-        """Extract complete game state for AI"""
+        """Snapshot the current decision point of ``game`` as a GameState."""
         dice_set = game.dice_set
-
-        # Extract available dice (0 for kept positions)
-        available_dice = [0] * 6
-        available_indices = dice_set.get_available_dice()
-        for idx in available_indices:
-            available_dice[idx] = dice_set.dice[idx]
-
-        # Extract kept groups
-        kept_groups = dice_set.kept_groups.copy()
-
-        # Extract scoring information
-        turn_score = dice_set.get_current_total_score()
-        current_set_score = dice_set.get_current_score()
-
-        # Extract player information
-        players = []
-        for player in game.players:
-            players.append(PlayerState(
-                total_score=player.total_score,
-                has_strich=getattr(player, 'has_strich', False),  # Will implement this
-                money=player.money
-            ))
-
-        # Check special combinations
-        can_complete_lange_strasse = StateExtractor._can_complete_lange_strasse(dice_set)
-        can_complete_talheim = StateExtractor._can_complete_talheim(dice_set)
-        is_totale_risk = not dice_set.can_keep_any_dice()
-
         return GameState(
-            available_dice=available_dice,
-            kept_groups=kept_groups,
-            turn_score=turn_score,
-            current_set_score=current_set_score,
-            players=players,
+            available_dice=dice_set.get_available_dice_values(),
+            kept_groups=[group[:] for group in dice_set.kept_groups],
+            turn_accumulated_score=dice_set.turn_accumulated_score,
+            roll_count=dice_set.roll_count,
+            players=[
+                PlayerState(p.total_score, p.has_strich, p.money) for p in game.players
+            ],
             current_player_idx=game.current_player_idx,
             starting_player_idx=game.starting_player_idx,
-            turn_number=getattr(game, 'turn_number', 1),  # Will implement this
+            turn_number=game.turn_number,
             is_final_round=game.final_turn,
-            lange_strasse_achieved=dice_set.lange_strasse_achieved,
-            can_complete_lange_strasse=can_complete_lange_strasse,
-            can_complete_talheim=can_complete_talheim,
-            is_totale_risk=is_totale_risk
         )
 
     @staticmethod
-    def _can_complete_lange_strasse(dice_set) -> bool:
-        """Check if Lange Strasse can be completed with available dice"""
-        if dice_set.lange_strasse_achieved:
-            return False
-        values = flatten(dice_set.kept_groups) + dice_set.get_available_dice_values()
-        return is_lange_strasse(values)
-
-    @staticmethod
-    def _can_complete_talheim(dice_set) -> bool:
-        """Check if Talheim can be completed with current dice"""
-        values = flatten(dice_set.kept_groups) + dice_set.get_available_dice_values()
-        return talheim_score(values) > 0
-
-    @staticmethod
     def to_vector(state: GameState) -> List[float]:
-        """Convert state to normalized vector for ML models"""
-        vector = []
+        """Encode a GameState as a fixed-length, normalized feature vector.
 
-        # Available dice (6 elements, 0-6, normalize to 0-1)
-        for die in state.available_dice:
-            vector.append(die / 6.0)
+        Players are ordered ego-centrically
+        Derived features (scores, completion flags) are included on purpose -- redundancy
+        speeds learning.
+        """
+        vector: List[float] = []
 
-        # Kept dice counts by value (6 elements)
+        # Dice as per-face counts (position-free, fixed length).
+        available_counts = Counter(state.available_dice)
         kept_counts = Counter(flatten(state.kept_groups))
-        for i in range(1, 7):
-            vector.append(kept_counts.get(i, 0) / 6.0)  # Normalize by max possible
+        for face in range(1, 7):
+            vector.append(available_counts.get(face, 0) / 6.0)
+        for face in range(1, 7):
+            vector.append(kept_counts.get(face, 0) / 6.0)
 
-        # Scores (normalize by reasonable maximums)
-        vector.append(state.turn_score / 10000.0)  # Max expected turn score
-        vector.append(state.current_set_score / 2000.0)  # Max reasonable set score
+        # Scoring (derived).
+        vector.append(state.current_set_score / 2000.0)
+        vector.append(state.turn_accumulated_score / 10000.0)
+        vector.append(state.total_turn_score / 10000.0)
+        vector.append(state.roll_count / 6.0)
 
-        # Player scores (normalize by win condition)
-        for player in state.players:
-            vector.append(player.total_score / 10000.0)
-            vector.append(1.0 if player.has_strich else 0.0)
+        # Situation flags (derived).
+        vector.append(1.0 if state.can_complete_lange_strasse else 0.0)
+        vector.append(1.0 if state.can_complete_talheim else 0.0)
+        vector.append(1.0 if state.can_keep_any else 0.0)
 
-        # Game context
-        vector.append(state.current_player_idx / 2.0)  # 0, 1, or 2 -> 0, 0.5, 1
-        vector.append(state.starting_player_idx / 2.0)
-        vector.append(state.turn_number / 20.0)  # Normalize by expected max turns
+        # Players, current player first.
+        n = len(state.players)
+        for offset in range(n):
+            p = state.players[(state.current_player_idx + offset) % n]
+            vector.append(p.total_score / 10000.0)
+            vector.append(1.0 if p.has_strich else 0.0)
+            vector.append(p.money / 1000.0)
 
-        # Boolean flags
-        vector.extend([
-            1.0 if state.is_final_round else 0.0,
-            1.0 if state.lange_strasse_achieved else 0.0,
-            1.0 if state.can_complete_lange_strasse else 0.0,
-            1.0 if state.can_complete_talheim else 0.0,
-            1.0 if state.is_totale_risk else 0.0
-        ])
+        # Game context.
+        vector.append(state.turn_number / 20.0)
+        vector.append(1.0 if state.is_final_round else 0.0)
 
         return vector
