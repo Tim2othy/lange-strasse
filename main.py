@@ -1,6 +1,8 @@
 """Main loop for game, nothing else."""
 
+from ai_actions import ActionGenerator
 from ai_player import AIPlayer
+from ai_state import StateExtractor
 from game import TheGame
 from nn_state import NNStateExtractor
 
@@ -72,7 +74,9 @@ def main():
         if isinstance(current_player, AIPlayer):
             # AI player's turn. The guard above guarantees at least one legal
             # move, so choose_action always returns an Action here.
-            action = current_player.choose_action(game)
+            state = StateExtractor.extract_state(game)
+            actions = ActionGenerator.get_valid_actions(game)
+            action = current_player.choose_action(state, actions)
 
             print(f"\n{current_player.name} chooses: {action}")
             explanation = current_player.get_explanation(game, action)

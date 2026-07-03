@@ -1,7 +1,7 @@
 """Player and AIPlayer Classes"""
 
 from ai_actions import Action
-from ai_evaluator import SimpleAI
+from ai_evaluator import simple_action
 
 
 class Player:
@@ -28,14 +28,16 @@ class AIPlayer(Player):
     def __init__(self, name: str, ai_type: str = "simple"):
         super().__init__(name)
 
-        if ai_type == "simple":
-            self.ai = SimpleAI()
-        else:
-            raise ValueError(f"Unknown AI type: {ai_type}")
+        self.ai_type = ai_type
 
-    def choose_action(self, game) -> Action:
+    def choose_action(self, game_state, actions) -> Action:
         """Let the AI choose an action"""
-        return self.ai.choose_action(game)
+
+        match self.ai_type:
+            case "simple":
+                return simple_action(game_state, actions)
+            case _:
+                raise ValueError(f"Unknown AI type: {self.ai_type}")
 
     def get_explanation(self, game, action: Action):
         """Get explanation for the AI's choice"""

@@ -132,35 +132,27 @@ class MoveEvaluator:
         return 0.0
 
 
-class SimpleAI:
-    """Simple AI that uses the move evaluator"""
+def simple_action(state, valid_actions) -> Action:
+    """Choose action based on simple heuristic"""
 
-    def __init__(self):
-        self.evaluator = MoveEvaluator()
+    if not valid_actions:
+        exception = "No valid actions available for the current state."
+        raise ValueError(exception)
 
-    def choose_action(self, game) -> Action:
-        """Choose the best action for the current game state"""
-        state = StateExtractor.extract_state(game)
-        valid_actions = ActionGenerator.get_valid_actions(game)
+    # Evaluate all actions
+    best_action = None
+    best_score = float("-inf")
 
-        if not valid_actions:
-            exception = "No valid actions available for the current state."
-            raise ValueError(exception)
+    for action in valid_actions:
+        score = MoveEvaluator().evaluate_action(state, action)
+        if score > best_score:
+            best_score = score
+            best_action = action
+    assert (
+        best_action is not None
+    ), "No valid action found despite valid_actions being non-empty."
 
-        # Evaluate all actions
-        best_action = None
-        best_score = float("-inf")
-
-        for action in valid_actions:
-            score = self.evaluator.evaluate_action(state, action)
-            if score > best_score:
-                best_score = score
-                best_action = action
-        assert (
-            best_action is not None
-        ), "No valid action found despite valid_actions being non-empty."
-
-        return best_action
+    return best_action
 
     def get_action_explanation(self, game, action: Action) -> str:
         """Get explanation for why this action was chosen"""
