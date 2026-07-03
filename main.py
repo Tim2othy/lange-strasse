@@ -5,7 +5,7 @@ from ai_player import AIPlayer
 from ai_state import StateExtractor
 from game import TheGame
 from nn_state import NNStateExtractor
-from config import AIS_PLAY
+from config import AIS_PLAY, ALGOS
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
                 print("Please enter a valid number")
 
     # Create game based on choice
-    game = TheGame(choice)
+    game = TheGame(choice, ALGOS)
 
     print("Goal: First to 10,000 points wins!")
     print("Commands: 'keep <values>', 'keep <values> stop', 'quit'")

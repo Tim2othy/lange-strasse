@@ -1,13 +1,14 @@
 """Game Class"""
 
 from ai_player import AIPlayer, Player
+from config import ALGOS
 from dice import DiceSet
 
 
 class TheGame:
     """Main game controller for 3-player Lange Strasse"""
 
-    def __init__(self, choice=1):
+    def __init__(self, choice=1, algorithms=ALGOS):
         self.players = [Player("Player 1"), Player("Player 2"), Player("Player 3")]
         self.current_player_idx = 0
         self.dice_set = DiceSet()
@@ -21,13 +22,13 @@ class TheGame:
         if choice == 1:
             pass
         elif choice == 2:
-            self.players[1] = AIPlayer("AI Player 2")
-            self.players[2] = AIPlayer("AI Player 3")
+            self.players[1] = AIPlayer("AI Player 2", algorithms[0])
+            self.players[2] = AIPlayer("AI Player 3", algorithms[1])
         elif choice == 3:
-            self.players[2] = AIPlayer("AI Player 3")
+            self.players[2] = AIPlayer("AI Player 3", algorithms[0])
         elif choice == 4:
             for i in range(3):
-                self.players[i] = AIPlayer(f"AI Player {i+1}")
+                self.players[i] = AIPlayer(f"AI Player {i+1}", algorithms[i])
 
     def _opponents(self):
         """All players other than the current one."""
