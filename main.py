@@ -1,5 +1,6 @@
 """Main loop for game, nothing else."""
 
+from ai_evaluator import SimpleAI
 from ai_player import AIPlayer
 from game import TheGame
 from nn_state import NNStateExtractor
@@ -69,12 +70,9 @@ def main():
         current_player = game.get_current_player()
 
         # Check if current player is AI
-        if hasattr(current_player, "is_ai") and current_player.is_ai:
+        if isinstance(current_player, AIPlayer):
             # AI player's turn. The guard above guarantees at least one legal
             # move, so choose_action always returns an Action here.
-            assert isinstance(
-                current_player, AIPlayer
-            ), "AI player must be an instance of AIPlayer"
             action = current_player.choose_action(game)
 
             print(f"\n{current_player.name} chooses: {action}")
@@ -181,13 +179,8 @@ def main():
             except ValueError:
                 print("Invalid values for force command")
 
-        elif (
-            command == "hint"
-            and hasattr(current_player, "is_ai")
-            and not current_player.is_ai
-        ):
+        elif command == "hint" and not isinstance(current_player, AIPlayer):
             # Give AI hint to human player
-            from ai_evaluator import SimpleAI
 
             temp_ai = SimpleAI()
             suggested_action = temp_ai.choose_action(game)

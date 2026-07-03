@@ -12,7 +12,6 @@ class Player:
         self.total_score = 0
         self.money = 0  # Money in cents
         self.has_strich = False
-        self.is_ai = False
 
     def add_money(self, cents):
         """Add money (can be negative for losses)"""
@@ -28,9 +27,6 @@ class AIPlayer(Player):
 
     def __init__(self, name: str, ai_type: str = "simple"):
         super().__init__(name)
-        self.is_ai = True
-        # Ensure AIPlayer has all the same attributes as Player
-        self.has_strich = False
 
         if ai_type == "simple":
             self.ai = SimpleAI()
