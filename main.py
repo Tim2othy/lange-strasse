@@ -97,10 +97,10 @@ def print_rules():
     print("- Totale (no keepable dice at start): Pay 50¢ to each opponent")
 
 
-def take_ai_turn(game):
+def take_ai_turn(game: TheGame):
     """Let the current (AI) player choose and apply an action."""
     current_player = game.get_current_player()
-    assert isinstance(current_player, AIPlayer)  # only called for AI seats
+    assert isinstance(current_player, AIPlayer)
     state = StateExtractor.extract_state(game)
     actions = ActionGenerator.get_valid_actions(game)
     action = current_player.choose_action(state, actions)
@@ -108,7 +108,7 @@ def take_ai_turn(game):
     game.process_dice_action(action.dice_to_keep, action.stop_after)
 
 
-def take_human_turn(game) -> bool:
+def take_human_turn(game: TheGame) -> bool:
     """Prompt the human for one command. Returns False if they quit."""
     player = game.get_current_player()
     command = input(f"\n{player.name}, enter command: ").strip().lower()

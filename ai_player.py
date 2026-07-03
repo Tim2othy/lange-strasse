@@ -1,5 +1,11 @@
 """Player and AIPlayer Classes"""
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from game_state import GameState
+
+
 from ai_actions import Action
 from ai_evaluator import random_action, simple_action
 from log import log
@@ -31,14 +37,14 @@ class AIPlayer(Player):
 
         self.ai_type = ai_type
 
-    def choose_action(self, game_state, actions) -> Action:
+    def choose_action(self, state: GameState, actions: list[Action]) -> Action:
         """Let the AI choose an action"""
 
         match self.ai_type:
             case "simple":
-                return simple_action(game_state, actions)
+                return simple_action(state, actions)
             case "random":
-                return random_action(game_state, actions)
+                return random_action(state, actions)
             case _:
                 raise ValueError(f"Unknown AI type: {self.ai_type}")
 

@@ -132,17 +132,17 @@ class MoveEvaluator:
         return 0.0
 
 
-def random_action(state, valid_actions) -> Action:
+def random_action(state: GameState, actions: list[Action]) -> Action:
     """Choose a random valid action"""
     import random
 
-    return random.choice(valid_actions)
+    return random.choice(actions)
 
 
-def simple_action(state, valid_actions) -> Action:
+def simple_action(state: GameState, actions: list[Action]) -> Action:
     """Choose action based on simple heuristic"""
 
-    if not valid_actions:
+    if not actions:
         exception = "No valid actions available for the current state."
         raise ValueError(exception)
 
@@ -150,15 +150,14 @@ def simple_action(state, valid_actions) -> Action:
     best_action = None
     best_score = float("-inf")
 
-    for action in valid_actions:
+    for action in actions:
         score = MoveEvaluator().evaluate_action(state, action)
         if score > best_score:
             best_score = score
             best_action = action
-    assert (
-        best_action is not None
-    ), "No valid action found despite valid_actions being non-empty."
 
+    text = "No valid action found despite valid_actions being non-empty."
+    assert best_action is not None, text
     return best_action
 
     def get_action_explanation(self, game, action: Action) -> str:
