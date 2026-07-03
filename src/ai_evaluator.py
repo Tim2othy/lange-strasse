@@ -3,6 +3,7 @@
 from ai_actions import Action
 from game_state import GameState
 from scoring import flatten, is_lange_strasse, score_groups, talheim_score
+from turn_value import action_value
 
 
 class MoveEvaluator:
@@ -141,8 +142,8 @@ def random_action(state: GameState, actions: list[Action]) -> Action:
     return random.choice(actions)
 
 
-def simple_action(state: GameState, actions: list[Action]) -> Action:
-    """Choose action based on simple heuristic"""
+def best_action(state: GameState, actions: list[Action], algorithm: str) -> Action:
+    """Choose action with highest value based on some algorithm"""
 
     if not actions:
         exception = "No valid actions available for the current state."
@@ -153,7 +154,12 @@ def simple_action(state: GameState, actions: list[Action]) -> Action:
     best_score = float("-inf")
 
     for action in actions:
-        score = MoveEvaluator().evaluate_action(state, action)
+        if algorithm == "simple":
+            score = MoveEvaluator().evaluate_action(state, action)
+        elif algorithm == "dp":
+            score = action_value(state, action)
+        else:
+            raise ValueError(f"Unknown algorithm: {algorithm}")
         if score > best_score:
             best_score = score
             best_action = action

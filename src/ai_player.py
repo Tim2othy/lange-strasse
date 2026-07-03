@@ -1,5 +1,7 @@
 """Player and AIPlayer Classes"""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -7,7 +9,7 @@ if TYPE_CHECKING:
 
 
 from ai_actions import Action
-from ai_evaluator import random_action, simple_action
+from ai_evaluator import random_action, best_action
 from log import log
 
 
@@ -42,9 +44,11 @@ class AIPlayer(Player):
 
         match self.ai_type:
             case "simple":
-                return simple_action(state, actions)
+                return best_action(state, actions, "simple")
             case "random":
                 return random_action(state, actions)
+            case "dp":
+                return best_action(state, actions, "dp")
             case _:
                 raise ValueError(f"Unknown AI type: {self.ai_type}")
 
