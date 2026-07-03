@@ -2,8 +2,8 @@
 import random
 from collections import Counter
 
+from log import log
 from scoring import (
-    INDIVIDUAL_SCORE,
     ScoreCalculator,
     ScoreValidator,
     can_keep_any,
@@ -61,7 +61,7 @@ class DiceSet:
             self.game_over = True
             # Check if this is a Totale (no dice can be kept on first roll)
             if self.roll_count == 1:
-                print("💀 TOTALE! No dice can be kept! 💀")
+                log("💀 TOTALE! No dice can be kept! 💀")
                 return "TOTALE"
             return True
         return False
@@ -137,7 +137,7 @@ class DiceSet:
         is_talheim, talheim_points = self.check_talheim()
         if is_talheim:
             self.game_over = True
-            print(f"🎯 TALHEIM! Three pairs worth {talheim_points} points! 🎯")
+            log(f"🎯 TALHEIM! Three pairs worth {talheim_points} points! 🎯")
             return True, f"TALHEIM_{talheim_points}"
 
         # Check for Lange Strasse
@@ -147,9 +147,9 @@ class DiceSet:
             # Check if this is a Super Strasse (achieved on 3rd roll)
             if self.roll_count >= 3:
                 self.super_strasse_achieved = True
-                print("🌟 SUPER STRASSE! Lange Strasse on the 3rd roll! 🌟")
+                log("🌟 SUPER STRASSE! Lange Strasse on the 3rd roll! 🌟")
             else:
-                print("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
+                log("🎉 LANGE STRASSE! 1-2-3-4-5-6 completed! 🎉")
         # Check if stopping
         if stop_after:
             self.game_over = True
@@ -164,7 +164,7 @@ class DiceSet:
             # reads the achieved flags before the next set clears them.)
             current_round_score = self.get_current_score()
             self.turn_accumulated_score += current_round_score
-            print(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
+            log(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
             self.reset_dice_only()
             return True, f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn."
 
@@ -260,7 +260,7 @@ class DiceSet:
     def display(self):
         """Display current dice state in a cleaner format"""
         if self.game_over:
-            print("\nTurn over! Score: 0 points (no valid moves)")
+            log("\nTurn over! Score: 0 points (no valid moves)")
             return
 
         # Show kept dice groups
@@ -277,18 +277,18 @@ class DiceSet:
                     # Mixed group - show individual values
                     kept_display.extend(map(str, sorted(group)))
 
-            print(f"Kept dice: {', '.join(kept_display)}")
+            log(f"Kept dice: {', '.join(kept_display)}")
 
         # Show available dice
         available_values = self.get_available_dice_values()
         if available_values:
-            print(f"Available dice: {', '.join(map(str, sorted(available_values)))}")
+            log(f"Available dice: {', '.join(map(str, sorted(available_values)))}")
         else:
-            print("All dice are kept!")
+            log("All dice are kept!")
 
         # Show scores
         if self.turn_accumulated_score > 0:
-            print(f"Current set score: {self.get_current_score()} points")
+            log(f"Current set score: {self.get_current_score()} points")
 
         total_turn_score = self.get_current_total_score()
-        print(f"🧩Total turn  score: {total_turn_score} points")
+        log(f"🧩Total turn  score: {total_turn_score} points")

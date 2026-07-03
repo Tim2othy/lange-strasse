@@ -2,6 +2,7 @@
 
 from ai_actions import Action
 from ai_evaluator import random_action, simple_action
+from log import log
 
 
 class Player:
@@ -17,9 +18,9 @@ class Player:
         """Add money (can be negative for losses)"""
         self.money += cents
         if cents > 0:
-            print(f"💰 {self.name} gains {cents}¢!")
+            log(f"💰 {self.name} gains {cents}¢!")
         else:
-            print(f"💸 {self.name} loses {abs(cents)}¢!")
+            log(f"💸 {self.name} loses {abs(cents)}¢!")
 
 
 class AIPlayer(Player):

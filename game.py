@@ -3,6 +3,7 @@
 from ai_player import AIPlayer, Player
 from config import ALGOS
 from dice import DiceSet
+from log import log
 
 
 class TheGame:
@@ -58,8 +59,8 @@ class TheGame:
         if turn_score == 0:
             current_player.has_strich = True
 
-        print(f"\n{current_player.name} scored {turn_score} points this turn!")
-        print(f"{current_player.name}'s total score: {current_player.total_score}")
+        log(f"\n{current_player.name} scored {turn_score} points this turn!")
+        log(f"{current_player.name}'s total score: {current_player.total_score}")
 
         # Check win conditions
         if current_player.total_score >= 10000:
@@ -67,8 +68,8 @@ class TheGame:
                 # First player to reach 10k
                 self.final_turn = True
                 self.someone_reached_10k = True
-                print(f"\n{current_player.name} reached 10,000 points!")
-                print("⚡ FINAL ROUND! This is the final round we are just going to finish it. ⚡")
+                log(f"\n{current_player.name} reached 10,000 points!")
+                log("⚡ FINAL ROUND! This is the final round we are just going to finish it. ⚡")
 
         # Check if final round is complete
         if self.final_turn and self.someone_reached_10k:
@@ -111,7 +112,7 @@ class TheGame:
 
         # Bonus for winning by 10th round
         if self.turn_number <= 10:
-            print(f"🎉 {winner.name} won by round {self.turn_number}! Early win bonus!")
+            log(f"🎉 {winner.name} won by round {self.turn_number}! Early win bonus!")
             for i, player in enumerate(self.players):
                 if i != self.players.index(winner):
                     player.add_money(-50)
@@ -120,7 +121,7 @@ class TheGame:
         # No strich bonus - everyone without a strich gets 50¢ from everyone else
         no_strich_players = [p for p in self.players if not p.has_strich]
         if no_strich_players:
-            print(f"🍀 No-strich bonus for: {', '.join(p.name for p in no_strich_players)}")
+            log(f"🍀 No-strich bonus for: {', '.join(p.name for p in no_strich_players)}")
             for no_strich_player in no_strich_players:
                 for other_player in self.players:
                     if other_player != no_strich_player:
@@ -130,35 +131,35 @@ class TheGame:
         # Under 5000 penalty - pay winner extra 50¢
         for player in self.players:
             if player != winner and player.total_score < 5000:
-                print(f"💸 {player.name} pays extra 50¢ for being under 5000 points!")
+                log(f"💸 {player.name} pays extra 50¢ for being under 5000 points!")
                 player.add_money(-50)
                 winner.add_money(50)
 
         self.winner = winner
         self.game_over = True
-        print(f"\n🎉 GAME OVER! {winner.name} wins! 🎉")
-        print("Final scores:")
+        log(f"\n🎉 GAME OVER! {winner.name} wins! 🎉")
+        log("Final scores:")
         for i, player in enumerate(sorted_players, 1):
             if isinstance(player, AIPlayer):
                 type = f"({player.ai_type})"
             else:
                 type = ""
             score = player.total_score
-            print(f"{i}. {player.name} {type}: {score} points (Money: {player.money}¢)")
+            log(f"{i}. {player.name} {type}: {score} points (Money: {player.money}¢)")
 
     def start_new_turn(self):
         """Start a new turn for the current player"""
         self.dice_set.reset_for_new_turn()
         current_player = self.get_current_player()
-        print(f"\n--- {current_player.name}'s turn ---")
+        log(f"\n--- {current_player.name}'s turn ---")
 
         # Show all players' scores
         scores = ', '.join(f"{p.name}: {p.total_score}" for p in self.players)
-        print(f"Current scores: {scores}")
+        log(f"Current scores: {scores}")
 
         # Check for Totale at start of turn
         if self.dice_set.check_totale():
-            print("💀 TOTALE! No dice can be kept at start of turn! 💀")
+            log("💀 TOTALE! No dice can be kept at start of turn! 💀")
             # Note: handle_totale() and end_turn(0) will be called by main.py game loop
             return
 
