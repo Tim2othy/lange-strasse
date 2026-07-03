@@ -25,7 +25,7 @@ class Player:
 class TheGame:
     """Main game controller for 3-player Lange Strasse"""
 
-    def __init__(self, choice):
+    def __init__(self, choice=1):
         self.players = [Player("Player 1"), Player("Player 2"), Player("Player 3")]
         self.current_player_idx = 0
         self.dice_set = DiceSet()
