@@ -5,26 +5,31 @@ from ai_player import AIPlayer
 from ai_state import StateExtractor
 from game import TheGame
 from nn_state import NNStateExtractor
+from config import AIS_PLAY
 
 
 def main():
     """Main game loop for 3-player Lange Strasse"""
     print("🎲 Welcome to 3-Player Lange Strasse! 🎲")
-    print("Choose game mode:")
-    print("1. Human vs Human vs Human")
-    print("2. Human vs AI vs AI")
-    print("3. Human vs Human vs AI")
-    print("4. AI vs AI vs AI (watch mode)")
 
-    while True:
-        try:
-            choice = int(input("Enter choice (1-4): "))
-            if 1 <= choice <= 4:
-                break
-            else:
-                print("Please enter 1, 2, 3, or 4")
-        except ValueError:
-            print("Please enter a valid number")
+    if AIS_PLAY:
+        choice = 4
+    else:
+        print("Choose game mode:")
+        print("1. Human vs Human vs Human")
+        print("2. Human vs AI vs AI")
+        print("3. Human vs Human vs AI")
+        print("4. AI vs AI vs AI (watch mode)")
+
+        while True:
+            try:
+                choice = int(input("Enter choice (1-4): "))
+                if 1 <= choice <= 4:
+                    break
+                else:
+                    print("Please enter 1, 2, 3, or 4")
+            except ValueError:
+                print("Please enter a valid number")
 
     # Create game based on choice
     game = TheGame(choice)
