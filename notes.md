@@ -30,7 +30,11 @@ Also even though each decision only has a few branches each move is so stochasti
 One thing to consider, how much knowledge to build in. E.g. in making decisions one could just input raw dice data etc. and have AI learn everything or:
 we could look at what kinds of decisions even exist in detail etc. hmm, thinking about this I don't have many ideas, just giving AI raw data + some features seems good already.
 
-I guess one feature could be purely the EV for this turn, maybe even train one AI to estimate that, and use as feature for second AI, might not be optimal though.
+## DP first
+
+Small DP solver for single turn is implemented in `turn_value.py`. 
+
+
 And reward function, in the end we only care about money but for intermediate rewards and to get starting using points seems very useful.
 
 ---
@@ -48,23 +52,12 @@ And reward function, in the end we only care about money but for intermediate re
 ## The decomposition (the main idea)
 
 Two nested problems:
-1. **Within a turn** (which dice to keep, when to stop): dynamics are fully known — dice probabilities + our scoring rules. **Solvable exactly by DP.** Don't make a net relearn dice arithmetic we can just compute.
+1. **Within a turn**
+   - done
 2. **Between turns** (am I behind? is a Straße worth the money? push or lock in? endgame?): depends on opponents + the money economy over a whole game. **Not analytically solvable → this is what we learn.**
 
 Build in what we know (1), learn what we can't (2). That's the "smart approximation" you were reaching for.
 
-## Why DP first
-
-State ≈ (dice left to roll, points banked this turn). Expectimax / value iteration:
-- stop → value = banked
-- keep *k* & continue → expected value over the next roll of the best continuation
-- dead roll → lose banked
-
-Small, exact, checkable by hand. It gives you two things at once:
-- a near-optimal single-turn policy (already crushes the current heuristic), and
-- the **turn-EV number you wanted as a feature — computed exactly**, so no need to train a second AI to estimate it.
-
-Start-simple approximation: fold the current set's score into "banked" and ignore cross-roll special-building (Straße / building a 4th-of-a-kind across rolls). That captures ~all the value; add specials to the state later, or let the value net cover them.
 
 ## Objective & reward (subtle but important)
 
