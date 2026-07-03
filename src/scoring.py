@@ -54,6 +54,30 @@ def can_keep_any(available, kept):
                for value, count in Counter(available).items())
 
 
+def merge_kept(kept_groups, new_values):
+    """Add ``new_values`` to ``kept_groups`` and return the resulting groups (inputs
+    are not mutated).
+
+    A newly kept die extends an existing same-face triplet when there is one -- so a
+    4th of a kind lands in the group and doubles its score -- otherwise three-or-more
+    of a face form their own group and stray 1s/5s stay individual. This is the single
+    source of truth for how kept dice are grouped; the game and the DP solver both use it.
+    """
+    groups = [list(group) for group in kept_groups]
+    for value, count in Counter(new_values).items():
+        for group in groups:
+            # Only merge into an existing triplet+ of this same value.
+            if len(group) >= 3 and len(set(group)) == 1 and group[0] == value:
+                group.extend([value] * count)
+                break
+        else:
+            if count >= 3:
+                groups.append([value] * count)  # new triplet+
+            else:
+                groups.extend([value] for _ in range(count))  # individual 1s/5s
+    return groups
+
+
 def score_groups(kept_groups):
     """Total score for kept dice groups, accounting for Talheim / Lange Strasse."""
     values = flatten(kept_groups)
