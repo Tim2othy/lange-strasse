@@ -1,4 +1,5 @@
 """dice.py where the DiceSet class lives"""
+
 import random
 from collections import Counter
 
@@ -15,6 +16,7 @@ from scoring import (
 
 class DiceSet:
     """Handle dice rolling and management"""
+
     def __init__(self, num_dice=6):
         self.dice = [0] * num_dice
         self.kept_dice = [False] * num_dice
@@ -101,7 +103,10 @@ class DiceSet:
         # Check if we have enough of each requested value
         for value, count in values_to_keep.items():
             if available_counts[value] < count:
-                return False, f"Only {available_counts[value]} dice with value {value} available, but {count} requested."
+                return (
+                    False,
+                    f"Only {available_counts[value]} dice with value {value} available, but {count} requested.",
+                )
 
         all_kept_values = flatten(self.kept_groups)
 
@@ -110,7 +115,9 @@ class DiceSet:
             dice_values_list.extend([value] * count)
 
         # Validate the keep (ScoreValidator allows Lange Strasse / Talheim too).
-        is_valid, error_msg = ScoreValidator.is_valid_keep(dice_values_list, all_kept_values)
+        is_valid, error_msg = ScoreValidator.is_valid_keep(
+            dice_values_list, all_kept_values
+        )
         if not is_valid:
             return False, error_msg
 
@@ -119,10 +126,15 @@ class DiceSet:
             # Calculate what the score would be if we kept these dice
             temp_groups = self.kept_groups.copy()
             temp_groups.append(dice_values_list)
-            projected_set_score = ScoreCalculator.calculate_score_from_groups(temp_groups)
+            projected_set_score = ScoreCalculator.calculate_score_from_groups(
+                temp_groups
+            )
 
             if projected_set_score < 300:
-                return False, f"Cannot stop with less than 300 points from current dice set. Would score {projected_set_score} points."
+                return (
+                    False,
+                    f"Cannot stop with less than 300 points from current dice set. Would score {projected_set_score} points.",
+                )
 
         # Keep the dice (find indices and mark them as kept)
         for i in available_indices:
@@ -164,9 +176,14 @@ class DiceSet:
             # reads the achieved flags before the next set clears them.)
             current_round_score = self.get_current_score()
             self.turn_accumulated_score += current_round_score
-            log(f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}")
+            log(
+                f"All 6 dice kept! Adding {current_round_score} points. Turn total so far: {self.turn_accumulated_score}"
+            )
             self.reset_dice_only()
-            return True, f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn."
+            return (
+                True,
+                f"All dice used! Rolling again with {self.turn_accumulated_score} points accumulated this turn.",
+            )
 
         # Auto-roll remaining dice
         self.roll()
@@ -199,8 +216,9 @@ class DiceSet:
 
             # Only merge if it would create/extend a triplet or better
             for i, group in enumerate(self.kept_groups):
-                if (len(set(group)) == 1 and group[0] == value and
-                    len(group) >= 3):  # Only merge with existing triplets+
+                if (
+                    len(set(group)) == 1 and group[0] == value and len(group) >= 3
+                ):  # Only merge with existing triplets+
                     self.kept_groups[i].extend([value] * new_count)
                     merged = True
                     break

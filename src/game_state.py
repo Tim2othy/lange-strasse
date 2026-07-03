@@ -24,9 +24,11 @@ from scoring import (
 @dataclass
 class PlayerState:
     """State information for a single player."""
+
     total_score: int
     has_strich: bool
     money: int
+
 
 @dataclass
 class GameState:
@@ -35,6 +37,7 @@ class GameState:
     Only non-derivable fields are stored. Derived quantities (current-set score,
     whether a special can be completed, ...) are ``@property`` views below.
     """
+
     # Dice information
     available_dice: List[int]  # values available to keep this roll, e.g. [1, 4]
     kept_groups: List[List[int]]  # Groups of kept dice

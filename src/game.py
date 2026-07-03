@@ -69,7 +69,9 @@ class TheGame:
                 self.final_turn = True
                 self.someone_reached_10k = True
                 log(f"\n{current_player.name} reached 10,000 points!")
-                log("⚡ FINAL ROUND! This is the final round we are just going to finish it. ⚡")
+                log(
+                    "⚡ FINAL ROUND! This is the final round we are just going to finish it. ⚡"
+                )
 
         # Check if final round is complete
         if self.final_turn and self.someone_reached_10k:
@@ -121,7 +123,9 @@ class TheGame:
         # No strich bonus - everyone without a strich gets 50¢ from everyone else
         no_strich_players = [p for p in self.players if not p.has_strich]
         if no_strich_players:
-            log(f"🍀 No-strich bonus for: {', '.join(p.name for p in no_strich_players)}")
+            log(
+                f"🍀 No-strich bonus for: {', '.join(p.name for p in no_strich_players)}"
+            )
             for no_strich_player in no_strich_players:
                 for other_player in self.players:
                     if other_player != no_strich_player:
@@ -154,7 +158,7 @@ class TheGame:
         log(f"\n--- {current_player.name}'s turn ---")
 
         # Show all players' scores
-        scores = ', '.join(f"{p.name}: {p.total_score}" for p in self.players)
+        scores = ", ".join(f"{p.name}: {p.total_score}" for p in self.players)
         log(f"Current scores: {scores}")
 
         # Check for Totale at start of turn

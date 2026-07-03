@@ -3,8 +3,8 @@ Comprehensive tests for Lange Strasse game mechanics
 """
 import unittest
 
-from dice import DiceSet
-from game import Player, TheGame
+from src.dice import DiceSet
+from src.game import Player, TheGame
 
 
 class TestLangeStrasseGameMechanics(unittest.TestCase):

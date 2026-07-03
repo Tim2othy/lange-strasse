@@ -56,7 +56,9 @@ class MoveEvaluator:
             # If stopping, the guaranteed score is everything banked so far this
             # turn plus this set's score (which _calculate_action_score already
             # includes the currently-kept dice, so use accumulated, not total).
-            return state.turn_accumulated_score + self._calculate_action_score(state, action)
+            return state.turn_accumulated_score + self._calculate_action_score(
+                state, action
+            )
         else:
             # If continuing, estimate expected value
             immediate_score = self._calculate_action_score(state, action)

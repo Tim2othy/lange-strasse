@@ -1,4 +1,5 @@
 """AI action representation and generation for Lange Strasse"""
+
 import itertools
 from dataclasses import dataclass
 from typing import List
@@ -9,12 +10,14 @@ from scoring import ScoreCalculator, ScoreValidator, flatten
 @dataclass
 class Action:
     """Represents a possible action the AI can take"""
+
     dice_to_keep: List[int]  # Values of dice to keep
     stop_after: bool  # Whether to end turn after keeping these dice
 
     def __str__(self):
-        dice_str = ' '.join(map(str, self.dice_to_keep))
+        dice_str = " ".join(map(str, self.dice_to_keep))
         return f"keep {dice_str}" + (" stop" if self.stop_after else "")
+
 
 class ActionGenerator:
     """Generate valid actions from a game state"""
@@ -42,7 +45,9 @@ class ActionGenerator:
         return actions
 
     @staticmethod
-    def _valid_combinations(available_dice: List[int], kept_values: List[int]) -> List[List[int]]:
+    def _valid_combinations(
+        available_dice: List[int], kept_values: List[int]
+    ) -> List[List[int]]:
         """All distinct, legally-keepable subsets of the available dice."""
         combos = []
         seen = set()
@@ -64,5 +69,7 @@ class ActionGenerator:
             return False
 
         # Must have at least 300 points from the current set.
-        projected = ScoreCalculator.calculate_score_from_groups(dice_set.kept_groups + [combo])
+        projected = ScoreCalculator.calculate_score_from_groups(
+            dice_set.kept_groups + [combo]
+        )
         return projected >= 300
