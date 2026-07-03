@@ -1,4 +1,4 @@
-"""game.py where the game is on"""
+"""Game Class and Player Class"""
 
 from ai_player import AIPlayer
 from dice import DiceSet

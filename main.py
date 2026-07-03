@@ -1,4 +1,4 @@
-"""main.py"""
+"""Main loop for game, nothing else."""
 
 from game import TheGame
 from nn_state import NNStateExtractor
