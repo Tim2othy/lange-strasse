@@ -1,32 +1,28 @@
 """Dynamic-programming solver for single-turn expected value.
 
 The within-turn decision is a *single-agent stochastic optimal-stopping* problem
-(there is no opponent inside a turn; the "branching" is the dice, so we take an
-expectation, not a minimax). We compute
+(no opponent inside a turn; the branching is the dice, so we take an expectation,
+not a minimax). We compute the expected final turn score under optimal play.
 
-    V(n, t) = expected final turn score when you are about to roll `n` dice with
-              `t` points already at risk this turn (lost entirely if you bust).
+State = (kept_config, prev):
+  - ``kept_config``: the groups of dice kept in the *current* set, exactly as the
+    game stores them. Carrying the full configuration (not just its score) is what
+    lets the DP value the specials correctly:
+      * extending a kept triplet -- a 4th of a kind doubles the group (via merge_kept
+        + score_groups), an 8th... etc.;
+      * completing a Talheim (three pairs, 500 / 1000 consecutive) -- which ends the turn;
+      * completing a Lange Strasse (1250) across rolls.
+  - ``prev``: points already banked from *previous* sets this turn (hot dice). It's
+    at risk too, so it's carried to weigh stopping vs. gambling.
 
-Why the state is (dice_left, total_at_risk) and nothing else:
-    When you continue, with some probability you bust and lose *everything* banked
-    this turn -- so the decision to stop vs. continue genuinely depends on how much
-    is at risk. By carrying the full at-risk total `t` (accumulated previous sets +
-    current set), a bust branch returns 0 (you lose all of `t`), and
+Why prev must be in the state: continuing can bust and lose *everything* at risk this
+turn, so the stop/continue choice depends on the whole at-risk total. Passing prev in
+means a bust branch returns 0 (you lose prev + current set), and
 
-        stop value     = t            (bank it)
-        continue value = V(n, t)      (already accounts for busting away t)
+    stop     = prev + current_set_score
+    continue = V(kept_config, prev)   # already accounts for busting it all away
 
-    so max(stop, continue) does the right trade-off automatically. That resolves
-    the "but the 1000 I already have must be in the bust probabilities" problem:
-    it is, because we pass it in as `t`.
-
-Deliberate approximations (strong-but-simple v1; refine later):
-  - The exact kept configuration isn't part of the state, so cross-roll
-    triplet-extension and Lange Strasse / Talheim *building across rolls* are not
-    modelled. Specials that land within a single roll are still scored.
-  - Stop-eligibility uses `t >= STOP_MIN`. That's exact for the first set (where
-    total == current-set score) and slightly permissive in later sets. At runtime
-    it doesn't matter for legality anyway: the game only offers legal stop actions.
+so max(stop, continue) trades off correctly.
 """
 
 from collections import Counter
@@ -35,12 +31,11 @@ from itertools import combinations_with_replacement
 from math import factorial
 
 from ai_actions import ActionGenerator
-from scoring import flatten, score_groups
+from scoring import flatten, merge_kept, score_groups, talheim_score
 
 NUM_DICE = 6
 STOP_MIN = 300      # minimum current-set score needed to bank a turn
-T_STEP = 50         # every score in the game is a multiple of 50
-T_MAX = 4000        # at/above this we assume optimal play banks (keeps recursion finite)
+T_MAX = 4000  # at/above this we assume optimal play banks (keeps the DAG finite)
 
 
 @lru_cache(maxsize=None)
@@ -57,74 +52,92 @@ def _roll_distribution(n: int) -> tuple[tuple[tuple[int, ...], float], ...]:
 
 
 @lru_cache(maxsize=None)
-def _keep_options(roll: tuple[int, ...]) -> tuple[tuple[int, int], ...]:
-    """Legal keeps of `roll` as (gain, dice_used). Empty tuple iff the roll busts.
+def _legal_keeps(
+    roll: tuple[int, ...], kept_values: tuple[int, ...]
+) -> tuple[tuple[int, ...], ...]:
+    """Legal keeps of `roll` (as value-tuples) given the already-kept values.
 
-    Reuses the game's own keep-enumeration so the DP can never disagree with the
-    real rules. `kept_values` is empty because this v1 scores each roll on its own
-    (see the module docstring on ignored cross-roll building).
+    Reuses the game's own enumeration so the DP can never disagree with the rules.
+    Depends only on the kept *values* (not their grouping), so it caches broadly.
+    Empty iff the roll busts.
     """
-    options = []
-    for combo in ActionGenerator._valid_combinations(list(roll), []):
-        options.append((score_groups([combo]), len(combo)))
-    return tuple(options)
+    combos = ActionGenerator._valid_combinations(list(roll), list(kept_values))
+    return tuple(tuple(combo) for combo in combos)
 
 
-def continue_value(n: int, t: int) -> float:
-    """Expected final turn score from choosing to roll `n` dice with `t` at risk."""
-    if t >= T_MAX:
-        # Boundary: with this much at stake, optimal play banks. Returning `t`
-        # (rather than recursing further) keeps the state space finite; states this
-        # high are reached with negligible probability, so the effect is tiny.
-        return float(t)
-    return _value(n, t)
+def _canon(kept_groups) -> tuple[tuple[int, ...], ...]:
+    """Order-independent, hashable key for a kept configuration."""
+    return tuple(sorted(tuple(sorted(group)) for group in kept_groups))
+
+
+def continue_value(kept_key: tuple[tuple[int, ...], ...], prev: int) -> float:
+    """Expected final turn score from rolling on with config `kept_key` and `prev` banked."""
+    total = prev + score_groups([list(group) for group in kept_key])
+    if total >= T_MAX:
+        # Boundary: with this much at stake optimal play banks. Returning the total
+        # (instead of recursing) keeps the state space finite; such states are reached
+        # with negligible probability, so the effect is tiny.
+        return float(total)
+    return _value(kept_key, prev)
 
 
 @lru_cache(maxsize=None)
-def _value(n: int, t: int) -> float:
-    """Expected final turn score: about to roll `n` dice with `t` at risk."""
+def _value(kept_key: tuple[tuple[int, ...], ...], prev: int) -> float:
+    """Expected final turn score: about to roll the remaining dice from this state."""
+    kept_groups = [list(group) for group in kept_key]
+    kept_values = tuple(sorted(flatten(kept_groups)))
+    n = NUM_DICE - len(kept_values)
+
     ev = 0.0
     for roll, prob in _roll_distribution(n):
-        options = _keep_options(roll)
-        if not options:
+        keeps = _legal_keeps(roll, kept_values)
+        if not keeps:
             best = 0.0  # bust -> lose everything at risk
         else:
-            best = max(_keep_value(n, t, gain, used) for gain, used in options)
+            best = max(_keep_value(kept_groups, prev, keep) for keep in keeps)
         ev += prob * best
     return ev
 
 
-def _keep_value(n: int, t: int, gain: int, used: int) -> float:
-    """Value of keeping `used` dice for `gain`, then playing on optimally."""
-    t2 = t + gain
-    remaining = n - used
-    if remaining == 0:
-        # Hot dice: all dice kept -> must roll a fresh 6 (stopping isn't allowed).
-        return continue_value(NUM_DICE, t2)
-    stop_value = float(t2) if t2 >= STOP_MIN else float("-inf")
-    return max(stop_value, continue_value(remaining, t2))
+def _keep_value(kept_groups, prev: int, keep: tuple[int, ...]) -> float:
+    """Value of keeping `keep`, then playing on optimally."""
+    new_kept = merge_kept(kept_groups, keep)
+    values = flatten(new_kept)
+    total = prev + score_groups(new_kept)
+
+    # Talheim ends the turn on the spot (banked, no choice to continue).
+    if talheim_score(values) > 0:
+        return float(total)
+
+    if len(values) == NUM_DICE:
+        # Hot dice (includes a Lange Strasse): all six kept -> roll a fresh six.
+        return continue_value((), total)
+
+    set_score = total - prev
+    stop_value = float(total) if set_score >= STOP_MIN else float("-inf")
+    return max(stop_value, continue_value(_canon(new_kept), prev))
 
 
 def action_value(state, action) -> float:
     """DP value of taking `action` in `state` (higher is better).
 
-    ``state`` is a GameState, ``action`` an Action. Stopping banks the exact total;
-    continuing looks up the DP continuation value of the resulting (dice, total) state.
+    ``state`` is a GameState, ``action`` an Action. Uses merge_kept so keeping a die
+    that extends an existing triplet is scored as the doubled group, matching the game.
     """
-    new_kept = state.kept_groups + [list(action.dice_to_keep)]
-    total_at_risk = state.turn_accumulated_score + score_groups(new_kept)
+    new_kept = merge_kept(state.kept_groups, action.dice_to_keep)
+    values = flatten(new_kept)
+    prev = state.turn_accumulated_score
+    total = prev + score_groups(new_kept)
 
-    if action.stop_after:
-        return float(total_at_risk)
+    # Stopping banks the total; a Talheim also ends the turn at the total.
+    if action.stop_after or talheim_score(values) > 0:
+        return float(total)
 
-    dice_used = len(flatten(new_kept))
-    remaining = NUM_DICE - dice_used
-    n = NUM_DICE if remaining == 0 else remaining  # all 6 kept -> hot dice, fresh 6
-    return continue_value(n, total_at_risk)
+    if len(values) == NUM_DICE:
+        return continue_value((), total)  # hot dice / Lange Strasse
+    return continue_value(_canon(new_kept), prev)
 
 
 def precompute() -> None:
-    """Eagerly fill the value cache (optional; otherwise it fills lazily on first use)."""
-    for t in range(T_MAX - T_STEP, -1, -T_STEP):
-        for n in range(1, NUM_DICE + 1):
-            _value(n, t)
+    """Warm the value cache from the start of a turn (optional; else it fills lazily)."""
+    continue_value((), 0)
