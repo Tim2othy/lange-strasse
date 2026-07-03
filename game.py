@@ -139,7 +139,12 @@ class TheGame:
         print(f"\n🎉 GAME OVER! {winner.name} wins! 🎉")
         print("Final scores:")
         for i, player in enumerate(sorted_players, 1):
-            print(f"{i}. {player.name}: {player.total_score} points (Money: {player.money}¢)")
+            if isinstance(player, AIPlayer):
+                type = f"({player.ai_type})"
+            else:
+                type = ""
+            score = player.total_score
+            print(f"{i}. {player.name} {type}: {score} points (Money: {player.money}¢)")
 
     def start_new_turn(self):
         """Start a new turn for the current player"""
