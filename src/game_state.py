@@ -134,9 +134,12 @@ class StateExtractor:
     def to_vector(state: GameState) -> List[float]:
         """Encode a GameState as a fixed-length, normalized feature vector.
 
-        Players are ordered ego-centrically
-        Derived features (scores, completion flags) are included on purpose -- redundancy
-        speeds learning.
+        Players are ordered ego-centrically (current player first) so the model
+        generalizes across seats. Derived features (scores, completion flags) are
+        included on purpose -- the redundancy speeds learning.
+
+        Returns a plain list of floats (no numpy dependency in the game code); an
+        RL trainer can wrap it with ``np.asarray(vec, dtype=np.float32)``.
         """
         vector: List[float] = []
 
@@ -147,6 +150,17 @@ class StateExtractor:
             vector.append(available_counts.get(face, 0) / 6.0)
         for face in range(1, 7):
             vector.append(kept_counts.get(face, 0) / 6.0)
+
+        # 1s and 5s that sit in a triplet (extendable -- each extra die doubles
+        # the group) vs. kept individually. The plain counts + total score can't
+        # recover this distinction. Only 1s/5s are ambiguous: a kept 2/3/4/6 is
+        # always part of a triplet.
+        grouped = Counter()
+        for group in state.kept_groups:
+            if len(group) >= 3:
+                grouped[group[0]] += len(group)
+        vector.append(grouped.get(1, 0) / 6.0)
+        vector.append(grouped.get(5, 0) / 6.0)
 
         # Scoring (derived).
         vector.append(state.current_set_score / 2000.0)
@@ -172,3 +186,22 @@ class StateExtractor:
         vector.append(1.0 if state.is_final_round else 0.0)
 
         return vector
+
+    @staticmethod
+    def vector_size(num_players: int = 3) -> int:
+        """Length of a to_vector() encoding, for sizing a model's input layer.
+
+        Computed from an empty state so it can never drift from to_vector().
+        """
+        dummy = GameState(
+            available_dice=[],
+            kept_groups=[],
+            turn_accumulated_score=0,
+            roll_count=0,
+            players=[PlayerState(0, False, 0) for _ in range(num_players)],
+            current_player_idx=0,
+            starting_player_idx=0,
+            turn_number=0,
+            is_final_round=False,
+        )
+        return len(StateExtractor.to_vector(dummy))
