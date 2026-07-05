@@ -43,16 +43,23 @@ def run_ai_game(algorithms) -> TheGame:
 
 
 def simulate(n_games, algorithms):
-    """Play ``n_games`` all-AI games and report how often each seat wins."""
-    wins = Counter()
-    for _ in range(n_games):
-        game = run_ai_game(ALGOS)
-        assert game.winner is not None
-        wins[game.winner.name] += 1
+    """Play ``n_games`` all-AI games and report how often each algorithm wins.
 
-    print(f"\nSimulated {n_games} game(s) with algorithms {algorithms}. Wins:")
-    for name, count in wins.most_common():
-        print(f"  {name}: {count} ({count / n_games:.0%})")
+    Seat assignments are rotated each game so first-move advantage doesn't skew the
+    comparison, and wins are tallied by algorithm rather than by seat.
+    """
+    wins = Counter()
+    n = len(algorithms)
+    for g in range(n_games):
+        seat_algorithms = [algorithms[(i + g) % n] for i in range(n)]  # rotate seats
+        game = run_ai_game(seat_algorithms)
+        assert game.winner is not None
+        winner_seat = game.players.index(game.winner)
+        wins[seat_algorithms[winner_seat]] += 1
+
+    print(f"\nSimulated {n_games} game(s) with {algorithms}. Wins by algorithm:")
+    for algorithm, count in wins.most_common():
+        print(f"  {algorithm}: {count} ({count / n_games:.0%})")
 
 
 # --------------------------------------------------------------------------- #

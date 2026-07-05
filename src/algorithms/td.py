@@ -23,6 +23,7 @@ import pickle
 from pathlib import Path
 
 from algorithms.turn_value import action_value
+from config import TD_ALPHA, TD_EPSILON, TD_TRAIN_GAMES
 from game_state import GameState, StateExtractor
 
 MONEY_SCALE = 100.0  # final money (cents) is divided by this to form the TD target
@@ -111,9 +112,9 @@ def td_action_score(state: GameState, action) -> float:
 
 # --- training --------------------------------------------------------------- #
 def train(
-    n_games: int = 5000,
-    alpha: float = 0.01,
-    epsilon: float = 0.1,
+    n_games: int,
+    alpha: float = TD_ALPHA,
+    epsilon: float = TD_EPSILON,
     seed: "int | None" = None,
     log_every: int = 500,
 ) -> LinearTD:
@@ -190,13 +191,11 @@ def _evaluate(games: int = 300) -> None:
 
 
 if __name__ == "__main__":
-    import sys
     import time
 
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
-    print(f"Training linear TD by self-play for {n} games...")
+    print(f"Training linear TD by self-play for {TD_TRAIN_GAMES} games...")
     start = time.perf_counter()
-    train(n)
+    train(TD_TRAIN_GAMES)
     print(
         f"Done in {time.perf_counter() - start:.1f}s. Weights saved to {_WEIGHTS_PATH.name}."
     )
