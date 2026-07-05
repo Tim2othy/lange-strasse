@@ -3,7 +3,7 @@
 from ai_actions import Action
 from algorithms.heuristic import MoveEvaluator
 from algorithms.td import td_action_score
-from algorithms.turn_value import action_value
+from algorithms.dp import action_value
 from game_state import GameState
 
 

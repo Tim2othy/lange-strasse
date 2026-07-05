@@ -22,7 +22,7 @@ Train it with:  python -m algorithms.td [n_games]
 import pickle
 from pathlib import Path
 
-from algorithms.turn_value import action_value
+from algorithms.dp import action_value
 from config import TD_ALPHA, TD_EPSILON, TD_TRAIN_GAMES, WEIGHTS_VERSION
 from game_state import GameState, StateExtractor
 
