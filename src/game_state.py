@@ -16,6 +16,7 @@ from scoring import (
     can_keep_any,
     flatten,
     is_lange_strasse,
+    merge_kept,
     score_groups,
     talheim_score,
 )
@@ -167,6 +168,7 @@ class StateExtractor:
         vector.append(state.turn_accumulated_score / 10000.0)
         vector.append(state.total_turn_score / 10000.0)
         vector.append(state.roll_count / 6.0)
+        vector.append((6 - sum(kept_counts.values())) / 6.0)  # dice left to roll
 
         # Situation flags (derived).
         vector.append(1.0 if state.can_complete_lange_strasse else 0.0)
@@ -186,6 +188,64 @@ class StateExtractor:
         vector.append(1.0 if state.is_final_round else 0.0)
 
         return vector
+
+    @staticmethod
+    def action_features(state: GameState, action) -> List[float]:
+        """Feature vector of the position reached by ``action``, before the next roll.
+
+        This is the single place where an *action's* features are built. It forms
+        the "afterstate" -- banking the turn on a stop or Talheim, taking hot dice
+        when all six are kept, otherwise leaving the set at risk -- always from the
+        acting player's perspective, and encodes it with ``to_vector`` plus a flag
+        for whether the turn ended. Algorithm-specific extras (e.g. a solver's own
+        value estimate) are appended by the algorithm, not here, so this stays
+        free of any dependency on the algorithm layer.
+        """
+        prev = state.turn_accumulated_score
+        merged = merge_kept(state.kept_groups, action.dice_to_keep)
+        values = flatten(merged)
+        set_score = score_groups(merged)
+
+        ends_turn = action.stop_after or talheim_score(values) > 0
+        hot_dice = not ends_turn and len(values) == 6
+
+        me = state.current_player_idx
+        players = [PlayerState(p.total_score, p.has_strich, p.money) for p in state.players]
+
+        if ends_turn:
+            # Turn banked: add the turn score to my total; nothing left at risk.
+            mine = players[me]
+            players[me] = PlayerState(
+                mine.total_score + prev + set_score, mine.has_strich, mine.money
+            )
+            kept_groups, accumulated, roll_count = [], 0, 0
+        elif hot_dice:
+            # All six kept: bank the set into the accumulator, roll a fresh six.
+            kept_groups, accumulated, roll_count = [], prev + set_score, 0
+        else:
+            # Still my turn, this set at risk.
+            kept_groups, accumulated, roll_count = merged, prev, state.roll_count
+
+        after = GameState(
+            available_dice=[],  # afterstate is before the next roll
+            kept_groups=kept_groups,
+            turn_accumulated_score=accumulated,
+            roll_count=roll_count,
+            players=players,
+            current_player_idx=me,  # keep the mover's perspective
+            starting_player_idx=state.starting_player_idx,
+            turn_number=state.turn_number,
+            is_final_round=state.is_final_round,
+        )
+
+        features = StateExtractor.to_vector(after)
+        features.append(1.0 if ends_turn else 0.0)  # did the turn just end?
+        return features
+
+    @staticmethod
+    def action_feature_size(num_players: int = 3) -> int:
+        """Length of an action_features() vector (to_vector + the turn-over flag)."""
+        return StateExtractor.vector_size(num_players) + 1
 
     @staticmethod
     def vector_size(num_players: int = 3) -> int:

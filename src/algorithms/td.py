@@ -22,70 +22,31 @@ Train it with:  python -m algorithms.td [n_games]
 import pickle
 from pathlib import Path
 
-from game_state import GameState, PlayerState, StateExtractor
-from scoring import flatten, merge_kept, score_groups, talheim_score
+from algorithms.turn_value import action_value
+from game_state import GameState, StateExtractor
 
 MONEY_SCALE = 100.0  # final money (cents) is divided by this to form the TD target
+DP_SCALE = 1000.0    # normalizer for the DP turn-value feature
 
-# feature vector = to_vector(afterstate) + [bias, turn_over, dice_remaining]
-FEATURE_DIM = StateExtractor.vector_size() + 3
+# feature vector = action_features(afterstate) + [bias, dp_value]
+FEATURE_DIM = StateExtractor.action_feature_size() + 2
 
 _WEIGHTS_PATH = Path(__file__).with_name("td_weights.pkl")
-_WEIGHTS_VERSION = 1
+_WEIGHTS_VERSION = 2  # bumped: DP feature added, so old weights are incompatible
 
 
-def afterstate_features(state: GameState, action) -> list[float]:
-    """Feature vector of the position right after `action`, from the mover's view."""
-    prev = state.turn_accumulated_score
-    merged = merge_kept(state.kept_groups, action.dice_to_keep)
-    values = flatten(merged)
-    set_score = score_groups(merged)
+def td_features(state: GameState, action) -> list[float]:
+    """Features for the TD model.
 
-    ends_turn = action.stop_after or talheim_score(values) > 0
-    hot_dice = (not ends_turn) and len(values) == 6
-
-    me = state.current_player_idx
-    players = [PlayerState(p.total_score, p.has_strich, p.money) for p in state.players]
-
-    if ends_turn:
-        # Turn banked: add the turn score to my total; nothing left at risk.
-        banked = prev + set_score
-        mine = players[me]
-        players[me] = PlayerState(
-            mine.total_score + banked, mine.has_strich, mine.money
-        )
-        kept_groups, accumulated, roll_count, dice_remaining = [], 0, 0, 0
-    elif hot_dice:
-        # All six kept: bank the set into the accumulator and roll a fresh six.
-        kept_groups, accumulated, roll_count, dice_remaining = (
-            [],
-            prev + set_score,
-            0,
-            6,
-        )
-    else:
-        # Still my turn, this set at risk.
-        kept_groups = merged
-        accumulated = prev
-        roll_count = state.roll_count
-        dice_remaining = 6 - len(values)
-
-    after = GameState(
-        available_dice=[],  # afterstate is before the next roll
-        kept_groups=kept_groups,
-        turn_accumulated_score=accumulated,
-        roll_count=roll_count,
-        players=players,
-        current_player_idx=me,  # keep my perspective
-        starting_player_idx=state.starting_player_idx,
-        turn_number=state.turn_number,
-        is_final_round=state.is_final_round,
-    )
-
-    features = StateExtractor.to_vector(after)
+    The generic afterstate features come from game_state (the single home for
+    position features); here we append only what's specific to this model: a bias
+    term and the DP solver's own turn-value estimate of the action. The DP value is
+    another algorithm's output, so it's added at this layer rather than in
+    game_state (which must not depend on the solver).
+    """
+    features = StateExtractor.action_features(state, action)
     features.append(1.0)  # bias
-    features.append(1.0 if ends_turn else 0.0)  # did I just end my turn?
-    features.append(dice_remaining / 6)  # upside I'm about to roll into
+    features.append(action_value(state, action) / DP_SCALE)  # DP turn-EV of the action
     return features
 
 
@@ -145,7 +106,7 @@ def _model() -> LinearTD:
 
 def td_action_score(state: GameState, action) -> float:
     """Value the AI assigns to `action` (used by ai_evaluator's "td" algorithm)."""
-    return _model().value(afterstate_features(state, action))
+    return _model().value(td_features(state, action))
 
 
 # --- training --------------------------------------------------------------- #
@@ -170,16 +131,14 @@ def train(
 
     for game_i in range(1, n_games + 1):
         env = LangeStrasseEnv()
-        state = env.observe()
-        last_features: dict[int, list[float]] = (
-            {}
-        )  # player -> its last chosen afterstate
-        info = None
+        last_features: dict[int, list[float]] = {}  # player -> its last chosen afterstate
+        info = {}
 
         while not env.done:
+            state = env.observe()
             player = env.current_player_idx
             actions = env.legal_actions()
-            feats = [afterstate_features(state, a) for a in actions]
+            feats = [td_features(state, a) for a in actions]
 
             if random.random() < epsilon:
                 choice = random.randrange(len(actions))
@@ -192,7 +151,7 @@ def train(
                 model.update(last_features[player], model.value(chosen), alpha)
             last_features[player] = chosen
 
-            state, _reward, _done, info = env.step(actions[choice])
+            _obs, _reward, _done, info = env.step(actions[choice])
 
         # Terminal: pull each player's last afterstate toward its final money.
         for player, feats in last_features.items():
