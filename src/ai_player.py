@@ -49,6 +49,8 @@ class AIPlayer(Player):
                 return random_action(state, actions)
             case "dp":
                 return best_action(state, actions, "dp")
+            case "td":
+                return best_action(state, actions, "td")
             case _:
                 raise ValueError(f"Unknown AI type: {self.ai_type}")
 

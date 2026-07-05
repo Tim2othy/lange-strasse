@@ -2,6 +2,7 @@
 
 from ai_actions import Action
 from algorithms.heuristic import MoveEvaluator
+from algorithms.td import td_action_score
 from algorithms.turn_value import action_value
 from game_state import GameState
 
@@ -29,6 +30,8 @@ def best_action(state: GameState, actions: list[Action], algorithm: str) -> Acti
             score = MoveEvaluator().evaluate_action(state, action)
         elif algorithm == "dp":
             score = action_value(state, action)
+        elif algorithm == "td":
+            score = td_action_score(state, action)
         else:
             raise ValueError(f"Unknown algorithm: {algorithm}")
         if score > best_score:
