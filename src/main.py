@@ -43,23 +43,28 @@ def run_ai_game(algorithms) -> TheGame:
 
 
 def simulate(n_games, algorithms):
-    """Play ``n_games`` all-AI games and report how often each algorithm wins.
+    """Play ``n_games`` all-AI games and report wins and cumulative money by algorithm.
 
-    Seat assignments are rotated each game so first-move advantage doesn't skew the
-    comparison, and wins are tallied by algorithm rather than by seat.
+    Seat assignments are rotated each game so first-move advantage doesn't skew the comparison.
     """
     wins = Counter()
+    money = Counter()  # cumulative end-of-game money (¢) by algorithm
     n = len(algorithms)
     for g in range(n_games):
         seat_algorithms = [algorithms[(i + g) % n] for i in range(n)]  # rotate seats
         game = run_ai_game(seat_algorithms)
         assert game.winner is not None
-        winner_seat = game.players.index(game.winner)
-        wins[seat_algorithms[winner_seat]] += 1
+        wins[seat_algorithms[game.players.index(game.winner)]] += 1
+        for seat, algorithm in enumerate(seat_algorithms):
+            money[algorithm] += game.players[seat].money
 
-    print(f"\nSimulated {n_games} game(s) with {algorithms}. Wins by algorithm:")
+    print(f"\nSimulated {n_games} game(s) with {algorithms} (seats rotated).")
+    print("Wins by algorithm:")
     for algorithm, count in wins.most_common():
-        print(f"  {algorithm}: {count} ({count / n_games:.0%})")
+        print(f"  {algorithm:8s} {count:5d}  ({count / n_games:.0%})")
+    print("Money by algorithm (settled at the end, as in real play):")
+    for algorithm, total in money.most_common():
+        print(f"  {algorithm:8s} {total:+7d}¢  ({total / n_games:+.1f}¢/game)")
 
 
 # --------------------------------------------------------------------------- #
