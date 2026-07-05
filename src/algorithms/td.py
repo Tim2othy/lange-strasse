@@ -23,7 +23,7 @@ import pickle
 from pathlib import Path
 
 from algorithms.turn_value import action_value
-from config import TD_ALPHA, TD_EPSILON, TD_TRAIN_GAMES
+from config import TD_ALPHA, TD_EPSILON, TD_TRAIN_GAMES, WEIGHTS_VERSION
 from game_state import GameState, StateExtractor
 
 MONEY_SCALE = 100.0  # final money (cents) is divided by this to form the TD target
@@ -33,7 +33,6 @@ DP_SCALE = 1000.0    # normalizer for the DP turn-value feature
 FEATURE_DIM = StateExtractor.action_feature_size() + 2
 
 _WEIGHTS_PATH = Path(__file__).with_name("td_weights.pkl")
-_WEIGHTS_VERSION = 2  # bumped: DP feature added, so old weights are incompatible
 
 
 def td_features(state: GameState, action) -> list[float]:
@@ -54,8 +53,13 @@ def td_features(state: GameState, action) -> list[float]:
 class LinearTD:
     """A linear value function trained by TD(0)."""
 
-    def __init__(self, dim: int, weights: list[float] | None = None):
+    def __init__(
+        self, dim: int, weights: list[float] | None = None, games_trained: int = 0
+    ):
         self.w = list(weights) if weights is not None else [0.0] * dim
+        self.games_trained = (
+            games_trained  # cumulative self-play games behind these weights
+        )
 
     def value(self, features: list[float]) -> float:
         return sum(wi * xi for wi, xi in zip(self.w, features))
@@ -71,7 +75,13 @@ class LinearTD:
     def save(self, path: Path = _WEIGHTS_PATH) -> None:
         with open(path, "wb") as f:
             pickle.dump(
-                {"version": _WEIGHTS_VERSION, "dim": len(self.w), "w": self.w}, f
+                {
+                    "version": WEIGHTS_VERSION,
+                    "dim": len(self.w),
+                    "games": self.games_trained,
+                    "w": self.w,
+                },
+                f,
             )
 
     @classmethod
@@ -81,8 +91,8 @@ class LinearTD:
             try:
                 with open(path, "rb") as f:
                     data = pickle.load(f)
-                if data.get("version") == _WEIGHTS_VERSION and data.get("dim") == dim:
-                    return cls(dim, data["w"])
+                if data.get("version") == WEIGHTS_VERSION and data.get("dim") == dim:
+                    return cls(dim, data["w"], data.get("games", 0))
             except (
                 pickle.UnpicklingError,
                 EOFError,
@@ -102,6 +112,14 @@ def _model() -> LinearTD:
     global _MODEL
     if _MODEL is None:
         _MODEL = LinearTD.load(FEATURE_DIM)
+        if _MODEL.games_trained:
+            print(
+                f"[td] using weights trained on {_MODEL.games_trained} self-play games"
+            )
+        else:
+            print(
+                "[td] no trained weights -- playing untrained (run: python -m algorithms.td)"
+            )
     return _MODEL
 
 
@@ -162,6 +180,7 @@ def train(
         if log_every and game_i % log_every == 0:
             print(f"  ...{game_i}/{n_games} games")
 
+    model.games_trained += n_games
     model.save()
     global _MODEL
     _MODEL = model  # so same-process evaluation uses the freshly trained weights
@@ -195,8 +214,10 @@ if __name__ == "__main__":
 
     print(f"Training linear TD by self-play for {TD_TRAIN_GAMES} games...")
     start = time.perf_counter()
-    train(TD_TRAIN_GAMES)
+    model = train(TD_TRAIN_GAMES)
     print(
-        f"Done in {time.perf_counter() - start:.1f}s. Weights saved to {_WEIGHTS_PATH.name}."
+        f"Done in {time.perf_counter() - start:.1f}s. "
+        f"Model now trained on {model.games_trained} games total, "
+        f"saved to {_WEIGHTS_PATH.name}."
     )
     _evaluate()

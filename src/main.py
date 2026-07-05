@@ -5,11 +5,12 @@
 - AIS_PLAY = False -> play one interactive game (you, optionally vs AI opponents).
 """
 
+import random
 from collections import Counter
 
 from ai_actions import ActionGenerator
 from ai_player import AIPlayer
-from config import AIS_PLAY, ALGOS, N_GAMES, VERBOSE
+from config import AIS_PLAY, ALGOS, N_GAMES, SEED, VERBOSE
 from game import TheGame
 from game_state import StateExtractor
 from log import log
@@ -42,11 +43,15 @@ def run_ai_game(algorithms) -> TheGame:
     return game
 
 
-def simulate(n_games, algorithms):
+def simulate(n_games, algorithms, seed=None):
     """Play ``n_games`` all-AI games and report wins and cumulative money by algorithm.
 
-    Seat assignments are rotated each game so first-move advantage doesn't skew the comparison.
+    Seat assignments are rotated each game so first-move advantage doesn't skew the
+    comparison. Pass ``seed`` for reproducible dice (identical results run to run).
     """
+    if seed is not None:
+        random.seed(seed)
+
     wins = Counter()
     money = Counter()  # cumulative end-of-game money (¢) by algorithm
     n = len(algorithms)
@@ -192,7 +197,7 @@ def play_interactive():
 def main():
     print("🎲 Welcome to 3-Player Lange Strasse! 🎲")
     if AIS_PLAY:
-        simulate(N_GAMES, ALGOS)
+        simulate(N_GAMES, ALGOS, SEED)
     else:
         play_interactive()
 
