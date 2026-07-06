@@ -23,89 +23,90 @@ Caveats on interpreting a *linear* model:
 """
 
 import pickle
+import sys
 from pathlib import Path
 
-USE_FULL_MODEL = False  # False -> td_small_weights.pkl, True -> td_weights.pkl
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from algorithms.td import _TD_FULL_KEYS, _TD_SMALL_KEYS, TD_MIN_KEYS
+from config import TD_INTERP
 
 
 def _weights_path() -> Path:
-    return Path(__file__).with_name(
-        "td_weights.pkl" if USE_FULL_MODEL else "td_small_weights.pkl"
-    )
+    if TD_INTERP == "td_full":
+        return Path(__file__).with_name("td_weights.pkl")
+    if TD_INTERP == "td_small":
+        return Path(__file__).with_name("td_small_weights.pkl")
+    if TD_INTERP == "td_min":
+        return Path(__file__).with_name("td_min_weights.pkl")
+    raise ValueError(f"Unknown TD mode: {TD_INTERP!r}")
 
 
-def full_feature_names(n_players: int = 3) -> list[str]:
-    """Human labels for each weight, in the exact order td.py builds them:
-    StateExtractor.to_vector + turn-over flag (action_features) + [bias, dp]."""
-    names: list[str] = []
-    for face in range(1, 7):
-        names.append(f"avail #{face}s  (/6, always 0 in afterstate)")
-    for face in range(1, 7):
-        names.append(f"kept #{face}s  (/6)")
-    names.append("kept 1s inside a triplet  (/6)")
-    names.append("kept 5s inside a triplet  (/6)")
-    names.append("current-set score  (/2000)")
-    names.append("turn banked score  (/10000)")
-    names.append("total turn score, banked if I stop  (/10000)")
-    names.append("roll count  (/6)")
-    names.append("dice left to roll  (/6)")
-    names.append("CAN complete Lange Strasse  (flag)")
-    names.append("CAN complete Talheim  (flag)")
-    names.append("CAN keep any die  (flag)")
-    seats = ["me", "next player", "last player"]
-    for offset in range(n_players):
-        who = seats[offset] if offset < len(seats) else f"player +{offset}"
-        names.append(f"{who}: total score  (/10000)")
-        names.append(f"{who}: has strich  (flag)")
-        names.append(f"{who}: money  (/1000)")
-    names.append("turn number  (/20)")
-    names.append("is final round  (flag)")
-    names.append("this action ENDS my turn  (flag)")  # action_features extra
-    names.append("bias  (always 1.0)")  # td_features extras
-    names.append("DP turn-value of the action  (/1000)")
-    return names
+def _mode_keys() -> list[str]:
+    if TD_INTERP == "td_full":
+        return _TD_FULL_KEYS + ["bias", "dp_turn_value"]
+    if TD_INTERP == "td_small":
+        return _TD_SMALL_KEYS + ["bias"]
+    if TD_INTERP == "td_min":
+        return TD_MIN_KEYS + ["bias"]
+    raise ValueError(f"Unknown TD mode: {TD_INTERP!r}")
 
 
-def small_feature_names(n_players: int = 3) -> list[str]:
-    """Human labels for td_small_weights.pkl.
+def _pretty_name(key: str) -> str:
+    return {
+        "kept1": "kept #1s  (/6)",
+        "kept2": "kept #2s  (/6)",
+        "kept3": "kept #3s  (/6)",
+        "kept4": "kept #4s  (/6)",
+        "kept5": "kept #5s  (/6)",
+        "kept6": "kept #6s  (/6)",
+        "grouped1": "kept 1s inside a triplet  (/6)",
+        "grouped5": "kept 5s inside a triplet  (/6)",
+        "current_set_score": "current-set score  (/2000)",
+        "turn_accumulated": "turn banked score  (/10000)",
+        "total_turn_score": "total turn score, banked if I stop  (/10000)",
+        "roll_count": "roll count  (/6)",
+        "dice_left": "dice left to roll  (/6)",
+        "flag_lange_strasse": "CAN complete Lange Strasse  (flag)",
+        "flag_talheim": "CAN complete Talheim  (flag)",
+        "flag_keep_any": "CAN keep any die  (flag)",
+        "score_me": "me: total score  (/10000)",
+        "strich_me": "me: has strich  (flag)",
+        "money_me": "me: money  (/1000)",
+        "score_p2": "next player: total score  (/10000)",
+        "strich_p2": "next player: has strich  (flag)",
+        "money_p2": "next player: money  (/1000)",
+        "score_p3": "last player: total score  (/10000)",
+        "strich_p3": "last player: has strich  (flag)",
+        "money_p3": "last player: money  (/1000)",
+        "turn_number": "turn number  (/20)",
+        "is_final_round": "is final round  (flag)",
+        "ends_turn": "this action ENDS my turn  (flag)",
+        "bias": "bias  (always 1.0)",
+        "dp_turn_value": "DP turn-value of the action  (/1000)",
+        "group1": "kept triplet size for #1s",
+        "group2": "kept triplet size for #2s",
+        "group3": "kept triplet size for #3s",
+        "group4": "kept triplet size for #4s",
+        "group5": "kept triplet size for #5s",
+        "group6": "kept triplet size for #6s",
+        "loose1": "loose #1s  (/6)",
+        "loose5": "loose #5s  (/6)",
+        "seat_offset": "seat offset from starter  (/n-1)",
+    }.get(key, key)
 
-    Exact order:
-    StateExtractor.to_vector_small + turn-over flag (action_features_small) + bias.
-    """
-    names: list[str] = []
-    for face in range(1, 7):
-        names.append(f"kept triplet size for #{face}s  (0 if <3, else (size-2)/4)")
-    names.append("loose #1s  (/6)")
-    names.append("loose #5s  (/6)")
-    names.append("turn banked score  (/10000)")
-    names.append("roll count  (/6)")
-    names.append("seat offset from starter  (/n-1)")
-    names.append("turn number  (/20)")
-    names.append("is final round  (flag)")
-    seats = ["me", "next player", "last player"]
-    for offset in range(n_players):
-        who = seats[offset] if offset < len(seats) else f"player +{offset}"
-        names.append(f"{who}: total score  (/10000)")
-        names.append(f"{who}: has strich  (flag)")
-        names.append(f"{who}: money  (/1000)")
-    names.append("this action ENDS my turn  (flag)")  # action_features_small extra
-    names.append("bias  (always 1.0)")  # td_features_small extra
-    return names
 
-
-def feature_names(n_players: int = 3) -> list[str]:
-    return (
-        full_feature_names(n_players)
-        if USE_FULL_MODEL
-        else small_feature_names(n_players)
-    )
+def feature_names() -> list[str]:
+    return [_pretty_name(key) for key in _mode_keys()]
 
 
 def main() -> None:
     weights_path = _weights_path()
     if not weights_path.exists():
-        mode = "td_weights.pkl" if USE_FULL_MODEL else "td_small_weights.pkl"
-        print(f"No weights at {mode} -- train first: python -m algorithms.td")
+        print(
+            f"No weights at {weights_path.name} -- train first: python -m algorithms.td"
+        )
         return
 
     with open(weights_path, "rb") as f:
