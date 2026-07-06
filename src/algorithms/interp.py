@@ -25,10 +25,16 @@ Caveats on interpreting a *linear* model:
 import pickle
 from pathlib import Path
 
-_WEIGHTS_PATH = Path(__file__).with_name("td_weights.pkl")
+USE_FULL_MODEL = False  # False -> td_small_weights.pkl, True -> td_weights.pkl
 
 
-def feature_names(n_players: int = 3) -> list[str]:
+def _weights_path() -> Path:
+    return Path(__file__).with_name(
+        "td_weights.pkl" if USE_FULL_MODEL else "td_small_weights.pkl"
+    )
+
+
+def full_feature_names(n_players: int = 3) -> list[str]:
     """Human labels for each weight, in the exact order td.py builds them:
     StateExtractor.to_vector + turn-over flag (action_features) + [bias, dp]."""
     names: list[str] = []
@@ -60,14 +66,49 @@ def feature_names(n_players: int = 3) -> list[str]:
     return names
 
 
+def small_feature_names(n_players: int = 3) -> list[str]:
+    """Human labels for td_small_weights.pkl.
+
+    Exact order:
+    StateExtractor.to_vector_small + turn-over flag (action_features_small) + bias.
+    """
+    names: list[str] = []
+    for face in range(1, 7):
+        names.append(f"kept triplet size for #{face}s  (0 if <3, else (size-2)/4)")
+    names.append("loose #1s  (/6)")
+    names.append("loose #5s  (/6)")
+    names.append("turn banked score  (/10000)")
+    names.append("roll count  (/6)")
+    names.append("seat offset from starter  (/n-1)")
+    names.append("turn number  (/20)")
+    names.append("is final round  (flag)")
+    seats = ["me", "next player", "last player"]
+    for offset in range(n_players):
+        who = seats[offset] if offset < len(seats) else f"player +{offset}"
+        names.append(f"{who}: total score  (/10000)")
+        names.append(f"{who}: has strich  (flag)")
+        names.append(f"{who}: money  (/1000)")
+    names.append("this action ENDS my turn  (flag)")  # action_features_small extra
+    names.append("bias  (always 1.0)")  # td_features_small extra
+    return names
+
+
+def feature_names(n_players: int = 3) -> list[str]:
+    return (
+        full_feature_names(n_players)
+        if USE_FULL_MODEL
+        else small_feature_names(n_players)
+    )
+
+
 def main() -> None:
-    if not _WEIGHTS_PATH.exists():
-        print(
-            f"No weights at {_WEIGHTS_PATH.name} -- train first: python -m algorithms.td"
-        )
+    weights_path = _weights_path()
+    if not weights_path.exists():
+        mode = "td_weights.pkl" if USE_FULL_MODEL else "td_small_weights.pkl"
+        print(f"No weights at {mode} -- train first: python -m algorithms.td")
         return
 
-    with open(_WEIGHTS_PATH, "rb") as f:
+    with open(weights_path, "rb") as f:
         data = pickle.load(f)
 
     w = data["w"]
@@ -76,7 +117,7 @@ def main() -> None:
         print(f"WARNING: {len(names)} labels but {len(w)} weights -- layout drifted.")
 
     print(
-        f"td_weights.pkl  (version {data.get('version')}, dim {data.get('dim')}, "
+        f"{weights_path.name}  (version {data.get('version')}, dim {data.get('dim')}, "
         f"trained on {data.get('games', '?')} self-play games)"
     )
     print(
