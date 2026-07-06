@@ -290,7 +290,7 @@ def train(
             if random.random() < epsilon:
                 choice = random.randrange(len(actions))
             else:
-                choice = max(range(len(actions)), key=lambda j: model.value(feats[j]))
+                choice = max(range(len(actions)), key=lambda j: model.value(feats[j]))  # type: ignore
             chosen = feats[choice]
 
             # Bootstrap: this player's previous afterstate -> value of the new one.
@@ -329,6 +329,7 @@ def _evaluate(variant: str = _DEFAULT_VARIANT, games: int = 300) -> None:
     for g in range(games):
         seats = [matchup[(i + g) % 3] for i in range(3)]
         game = main.run_ai_game(seats)
+        assert game.winner is not None
         wins[seats[game.players.index(game.winner)]] += 1
 
     print(f"\nEval over {games} games (seats rotated):")
