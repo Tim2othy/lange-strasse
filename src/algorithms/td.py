@@ -88,6 +88,7 @@ _TD_SMALL_KEYS = TD_MIN_KEYS + [
     "score_p3", "strich_p3", "money_p3",
     
 ]
+_TD_DP = ["dp_value"]
 # fmt: on
 
 
@@ -199,7 +200,7 @@ VARIANTS = {
         "td_full",
         td_features,  # == _encode(_TD_FULL_KEYS)
         len(_TD_FULL_KEYS) + 1,  # + bias  (dp_value is a key)
-        "td_weights.pkl",
+        "td_full_weights.pkl",
         WEIGHTS_VERSION,
     ),
     "td_small": _Variant(
@@ -216,22 +217,27 @@ VARIANTS = {
         "td_min_weights.pkl",
         1,
     ),
+    "td_dp": _Variant(
+        "td_dp",
+        _encode(_TD_DP),
+        len(_TD_DP) + 1,  # + bias
+        "td_dp_weights.pkl",
+        1,
+    ),
 }
 _DEFAULT_VARIANT = "td_full"
 
 # Every algorithm string that means "use a TD model" -- the variants plus the bare
 # "td" alias. ai_evaluator/ai_player dispatch off this, so adding a variant above
 # is all it takes to make it playable; no dispatch code needs to change.
-TD_ALGORITHMS = {"td", *VARIANTS}
+TD_ALGORITHMS = {*VARIANTS}
 
 # Kept for callers that predate the variants (e.g. hand_eval, interp): the full dim.
 FEATURE_DIM = VARIANTS["td_full"].dim
 
 
 def _resolve(name: str) -> _Variant:
-    """Map an algorithm string to a variant; bare ``"td"`` means the full model."""
-    if name == "td":
-        name = "td_full"
+    """Map an algorithm string to a variant"""
     try:
         return VARIANTS[name]
     except KeyError:

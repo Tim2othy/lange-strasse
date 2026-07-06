@@ -29,16 +29,6 @@ from algorithms.td import _TD_FULL_KEYS, _TD_SMALL_KEYS, TD_MIN_KEYS
 from config import TD_INTERP
 
 
-def _weights_path() -> Path:
-    if TD_INTERP == "td_full":
-        return Path(__file__).with_name("td_weights.pkl")
-    if TD_INTERP == "td_small":
-        return Path(__file__).with_name("td_small_weights.pkl")
-    if TD_INTERP == "td_min":
-        return Path(__file__).with_name("td_min_weights.pkl")
-    raise ValueError(f"Unknown TD mode: {TD_INTERP!r}")
-
-
 def _mode_keys() -> list[str]:
     if TD_INTERP == "td_full":
         return _TD_FULL_KEYS + ["bias", "dp_turn_value"]
@@ -46,6 +36,9 @@ def _mode_keys() -> list[str]:
         return _TD_SMALL_KEYS + ["bias"]
     if TD_INTERP == "td_min":
         return TD_MIN_KEYS + ["bias"]
+    if TD_INTERP == "td_dp":
+        return ["dp_turn_value", "bias"]
+
     raise ValueError(f"Unknown TD mode: {TD_INTERP!r}")
 
 
@@ -98,11 +91,9 @@ def feature_names() -> list[str]:
 
 
 def main() -> None:
-    weights_path = _weights_path()
+    weights_path = Path(__file__).with_name((TD_INTERP).lower() + "_weights.pkl")
     if not weights_path.exists():
-        print(
-            f"No weights at {weights_path.name} -- train first: python -m algorithms.td"
-        )
+        print(f"No weights at {weights_path.name}, train: python -m algorithms.td")
         return
 
     with open(weights_path, "rb") as f:
