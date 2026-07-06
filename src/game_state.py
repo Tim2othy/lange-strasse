@@ -13,7 +13,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import List
 
-from game.scoring import (
+from game.rules import (
     can_keep_any,
     flatten,
     is_lange_strasse,
