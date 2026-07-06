@@ -26,10 +26,10 @@ from types import SimpleNamespace
 
 from ai_actions import ActionGenerator
 from algorithms.dp import action_value
-from algorithms.interp import feature_names
 from algorithms.td import _model, td_features
-from config import HAND_ACCUMULATED, HAND_AVAILABLE, HAND_KEPT
+from config import HAND_ACCUMULATED, HAND_AVAILABLE, HAND_KEPT, TD_INTERP
 from game_state import GameState, PlayerState
+from interp import feature_names
 from scoring import flatten, merge_kept
 
 
@@ -70,7 +70,7 @@ def _bar(value: float, lo: float, hi: float, width: int = 24) -> str:
 
 def main() -> None:
     state = build_state(HAND_AVAILABLE, HAND_KEPT, HAND_ACCUMULATED)
-    model = _model()
+    model = _model(TD_INTERP)
     names = feature_names()
 
     kept_str = " ".join(map(str, flatten(state.kept_groups))) or "(none)"
