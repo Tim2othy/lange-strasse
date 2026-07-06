@@ -1,5 +1,10 @@
 # lange-strasse
 
+Use
+`cd C:\Users\timtj\GitHub\lange-strasse\src
+python -m algorithms.td td_small 2000` to train model. Change Model name and number.
+
+
 This project uses a linear TD value function over *afterstates*.
 
 For every legal action the AI can take, it:
