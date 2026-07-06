@@ -32,8 +32,8 @@ from itertools import combinations_with_replacement
 from math import factorial
 from pathlib import Path
 
-from ai_actions import ActionGenerator
-from scoring import flatten, merge_kept, score_groups, talheim_score
+from game.ai_actions import ActionGenerator
+from game.scoring import flatten, merge_kept, score_groups, talheim_score
 
 NUM_DICE = 6
 STOP_MIN = 300      # minimum current-set score needed to bank a turn

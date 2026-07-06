@@ -1,4 +1,5 @@
 """scoring.py -- the single source of truth for Lange Strasse scoring and rules."""
+
 from collections import Counter
 
 # Face values that make up a Lange Strasse (1-2-3-4-5-6).
@@ -50,8 +51,10 @@ def can_keep_any(available, kept):
 
     # A value already has (or would reach) a keepable triplet.
     kept_counts = Counter(kept)
-    return any(count >= 3 or kept_counts.get(value, 0) >= 3
-               for value, count in Counter(available).items())
+    return any(
+        count >= 3 or kept_counts.get(value, 0) >= 3
+        for value, count in Counter(available).items()
+    )
 
 
 def merge_kept(kept_groups, new_values):

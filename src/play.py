@@ -8,10 +8,10 @@
 import sys
 from collections import Counter
 
-from ai_actions import ActionGenerator
+from game.ai_actions import ActionGenerator
 from ai_player import AIPlayer
 from config import AIS_PLAY, SEED, VERBOSE
-from game import TheGame
+from game.game import TheGame
 from game_state import StateExtractor
 from log import log
 

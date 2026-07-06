@@ -2,7 +2,7 @@
 
 from ai_player import AIPlayer, Player
 from config import DEFAULT_ALGORITHMS
-from dice import DiceSet
+from game.dice import DiceSet
 from log import log
 
 

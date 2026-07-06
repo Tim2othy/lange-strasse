@@ -14,8 +14,8 @@ Forced turn-endings (dead roll / Totale) are auto-resolved so every observation
 handed back is a real decision point.
 """
 
-from ai_actions import Action, ActionGenerator
-from game import TheGame
+from game.ai_actions import Action, ActionGenerator
+from game.game import TheGame
 from game_state import GameState, StateExtractor
 
 

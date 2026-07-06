@@ -1,6 +1,6 @@
 """AI move evaluation for Lange Strasse"""
 
-from ai_actions import Action
+from game.ai_actions import Action
 from algorithms.heuristic import MoveEvaluator
 from algorithms.td import TD_ALGORITHMS, td_action_score
 from algorithms.dp import action_value

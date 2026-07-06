@@ -4,7 +4,7 @@ import itertools
 from dataclasses import dataclass
 from typing import List
 
-from scoring import ScoreCalculator, ScoreValidator, flatten
+from game.scoring import ScoreCalculator, ScoreValidator, flatten
 
 
 @dataclass

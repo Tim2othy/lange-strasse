@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from game_state import GameState
 
 
-from ai_actions import Action
+from game.ai_actions import Action
 from ai_evaluator import random_action, best_action
 from algorithms.td import TD_ALGORITHMS
 from log import log

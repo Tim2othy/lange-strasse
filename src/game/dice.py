@@ -3,8 +3,7 @@
 import random
 from collections import Counter
 
-from log import log
-from scoring import (
+from game.scoring import (
     ScoreCalculator,
     ScoreValidator,
     can_keep_any,
@@ -13,6 +12,7 @@ from scoring import (
     merge_kept,
     talheim_score,
 )
+from log import log
 
 
 class DiceSet:
