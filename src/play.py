@@ -5,43 +5,44 @@
 - AIS_PLAY = False -> play one interactive game (you, optionally vs AI opponents).
 """
 
+import random
 import sys
 from collections import Counter
 
-from ai_player import ActionGenerator, AIPlayer
-from config import AIS_PLAY, SEED, VERBOSE
-from game.game import TheGame
+import log as log_module
+from ai_player import AIPlayer
+from config import AIS_PLAY, SEED
+from game.game import Player, TheGame
+from game.rules import Action
 from game_state import StateExtractor
 from log import log
 
 
 # --------------------------------------------------------------------------- #
-# AI simulation (players decide for themselves; no console input)
+# The one game loop (AI seats decide for themselves, human seats are prompted)
 # --------------------------------------------------------------------------- #
-def run_ai_game(algorithms) -> TheGame:
-    """Play one all-AI game to completion and return the finished game."""
-    game = TheGame(choice=4, algorithms=algorithms)
-    game.start_new_turn()
-
+def run_game(game: TheGame) -> TheGame | None:
+    """Play ``game`` to completion. Returns the finished game (None if a human quit)."""
     while not game.game_over:
         game.advance_to_decision()
         if game.game_over:
             break
-        if VERBOSE:
-            game.dice_set.display()
+        game.dice_set.display()
 
-        player = game.get_current_player()
-        assert isinstance(player, AIPlayer)  # choice=4 -> every seat is an AI
-        state = StateExtractor.extract_state(game)
-        actions = ActionGenerator.get_valid_actions(game)
-        action = player.choose_action(state, actions)
-
-        log(f"\n{player.name} chooses: {action}")
-        game.process_dice_action(action.dice_to_keep, action.stop_after)
-
+        player = game.current_player
+        if isinstance(player, AIPlayer):
+            state = StateExtractor.extract_state(game)
+            action = player.choose_action(state, game.legal_actions())
+            log(f"\n{player.name} chooses: {action}")
+            game.apply_action(action)
+        elif not take_human_turn(game):
+            return None  # human quit
     return game
 
 
+# --------------------------------------------------------------------------- #
+# AI simulation (no console input)
+# --------------------------------------------------------------------------- #
 def _progress_bar(percent: int, width: int = 10) -> str:
     filled = percent * width // 100
     return "[" + "#" * filled + " " * (width - filled) + "]"
@@ -49,15 +50,18 @@ def _progress_bar(percent: int, width: int = 10) -> str:
 
 def run_matchup(n_games, algorithms):
     """Run rotated-seat AI games and return win/money totals."""
-
     wins = Counter()
     money = Counter()  # cumulative end-of-game money (¢) by algorithm
     n = len(algorithms)
     next_percent = 10
     for g in range(n_games):
         seat_algorithms = [algorithms[(i + g) % n] for i in range(n)]  # rotate seats
-        game = run_ai_game(seat_algorithms)
-        assert game.winner is not None
+        players = [
+            AIPlayer(f"AI Player {i + 1}", algorithm)
+            for i, algorithm in enumerate(seat_algorithms)
+        ]
+        game = run_game(TheGame(players))
+        assert game is not None and game.winner is not None
         wins[seat_algorithms[game.players.index(game.winner)]] += 1
         for seat, algorithm in enumerate(seat_algorithms):
             money[algorithm] += game.players[seat].money
@@ -88,8 +92,8 @@ def simulate(n_games, algorithms, seed=None):
 # --------------------------------------------------------------------------- #
 # Interactive play
 # --------------------------------------------------------------------------- #
-def choose_game_mode() -> int:
-    """Ask the human which human/AI mix to play."""
+def choose_players(algorithms) -> list[Player]:
+    """Ask the human which human/AI mix to play and build the seats."""
     print("Choose game mode:")
     print("1. Human vs Human vs Human")
     print("2. Human vs AI vs AI")
@@ -100,10 +104,20 @@ def choose_game_mode() -> int:
         try:
             choice = int(input("Enter choice (1-4): "))
             if 1 <= choice <= 4:
-                return choice
+                break
             print("Please enter 1, 2, 3, or 4")
         except ValueError:
             print("Please enter a valid number")
+
+    players = [Player(f"Player {i + 1}") for i in range(3)]
+    if choice == 2:
+        players[1] = AIPlayer("AI Player 2", algorithms[0])
+        players[2] = AIPlayer("AI Player 3", algorithms[1])
+    elif choice == 3:
+        players[2] = AIPlayer("AI Player 3", algorithms[0])
+    elif choice == 4:
+        players = [AIPlayer(f"AI Player {i + 1}", algorithms[i]) for i in range(3)]
+    return players
 
 
 def print_rules():
@@ -127,20 +141,9 @@ def print_rules():
     print("- Totale (no keepable dice at start): Pay 50¢ to each opponent")
 
 
-def take_ai_turn(game: TheGame):
-    """Let the current (AI) player choose and apply an action."""
-    current_player = game.get_current_player()
-    assert isinstance(current_player, AIPlayer)
-    state = StateExtractor.extract_state(game)
-    actions = ActionGenerator.get_valid_actions(game)
-    action = current_player.choose_action(state, actions)
-    print(f"\n{current_player.name} chooses: {action}")
-    game.process_dice_action(action.dice_to_keep, action.stop_after)
-
-
 def take_human_turn(game: TheGame) -> bool:
     """Prompt the human for one command. Returns False if they quit."""
-    player = game.get_current_player()
+    player = game.current_player
     command = input(f"\n{player.name}, enter command: ").strip().lower()
 
     if command == "quit":
@@ -164,7 +167,7 @@ def take_human_turn(game: TheGame) -> bool:
             print("Dice values must be between 1 and 6.")
             return True
 
-        success, result = game.process_dice_action(dice_values, stop_after)
+        success, result = game.apply_action(Action(dice_values, stop_after))
         if not success:
             print(f"Error: {result}")
         return True
@@ -179,8 +182,7 @@ def take_human_turn(game: TheGame) -> bool:
         if not values:
             print("Usage: force 1 2 3 4 5 6")
             return True
-        game.dice_set.force_next_roll(values)
-        game.dice_set.roll()
+        game.dice_set.force_roll(values)
         print("💬 Debug: Forced dice roll")
         return True
 
@@ -190,21 +192,10 @@ def take_human_turn(game: TheGame) -> bool:
 
 def play_interactive(algorithms):
     """Play one game with a human at the keyboard (optionally vs AI opponents)."""
-    choice = choose_game_mode()
-    game = TheGame(choice, algorithms)
+    log_module.VERBOSE = True  # a human is watching, whatever config.VERBOSE says
+    players = choose_players(algorithms)
     print_rules()
-
-    game.start_new_turn()
-    while not game.game_over:
-        game.advance_to_decision()
-        if game.game_over:
-            break
-        game.dice_set.display()
-
-        if isinstance(game.get_current_player(), AIPlayer):
-            take_ai_turn(game)
-        elif not take_human_turn(game):
-            return  # human quit
+    run_game(TheGame(players))
 
 
 def play(n_games, algorithms):

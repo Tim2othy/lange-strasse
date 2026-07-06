@@ -119,7 +119,7 @@ class StateExtractor:
         """Snapshot the current decision point of ``game`` as a GameState."""
         dice_set = game.dice_set
         return GameState(
-            available_dice=dice_set.get_available_dice_values(),
+            available_dice=list(dice_set.available),
             kept_groups=[group[:] for group in dice_set.kept_groups],
             turn_accumulated_score=dice_set.turn_accumulated_score,
             roll_count=dice_set.roll_count,
@@ -129,7 +129,7 @@ class StateExtractor:
             current_player_idx=game.current_player_idx,
             starting_player_idx=game.starting_player_idx,
             turn_number=game.turn_number,
-            is_final_round=game.final_turn,
+            is_final_round=game.final_round,
         )
 
     # ------------------------------------------------------------------ #

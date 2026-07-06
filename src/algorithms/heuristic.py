@@ -1,6 +1,12 @@
-from ai_player import Action
+from game.rules import (
+    Action,
+    flatten,
+    is_lange_strasse,
+    merge_kept,
+    score_groups,
+    talheim_score,
+)
 from game_state import GameState
-from game.rules import flatten, is_lange_strasse, score_groups, talheim_score
 
 
 class MoveEvaluator:
@@ -66,7 +72,7 @@ class MoveEvaluator:
 
     def _calculate_action_score(self, state: GameState, action: Action) -> int:
         """Calculate immediate score from keeping these dice"""
-        return score_groups(state.kept_groups + [action.dice_to_keep])
+        return score_groups(merge_kept(state.kept_groups, action.dice_to_keep))
 
     def _evaluate_risk(self, state: GameState, action: Action) -> float:
         """Evaluate risk of getting 0 points (higher = more risky)"""

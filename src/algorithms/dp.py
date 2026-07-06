@@ -32,11 +32,16 @@ from itertools import combinations_with_replacement
 from math import factorial
 from pathlib import Path
 
-from ai_player import ActionGenerator
-from game.rules import flatten, merge_kept, score_groups, talheim_score
+from game.rules import (
+    NUM_DICE,
+    STOP_MIN,
+    flatten,
+    merge_kept,
+    score_groups,
+    talheim_score,
+    valid_keeps,
+)
 
-NUM_DICE = 6
-STOP_MIN = 300      # minimum current-set score needed to bank a turn
 T_MAX = 4000  # at/above this we assume optimal play banks (keeps the DAG finite)
 
 # --- persisted value cache -------------------------------------------------- #
@@ -76,7 +81,7 @@ def _legal_keeps(
     Depends only on the kept *values* (not their grouping), so it caches broadly.
     Empty iff the roll busts.
     """
-    combos = ActionGenerator._valid_combinations(list(roll), list(kept_values))
+    combos = valid_keeps(list(roll), list(kept_values))
     return tuple(tuple(combo) for combo in combos)
 
 

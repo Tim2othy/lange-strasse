@@ -1,4 +1,4 @@
-"""Headless RL environment wrapping TheGame.
+"""Headless RL environment wrapping the game.
 
 This is a *library*, not a runnable script -- run everything through play.py.
 It exists for the one case that differs from a normal game: an external learner
@@ -14,8 +14,8 @@ Forced turn-endings (dead roll / Totale) are auto-resolved so every observation
 handed back is a real decision point.
 """
 
-from ai_player import Action, ActionGenerator
 from game.game import TheGame
+from game.rules import Action
 from game_state import GameState, StateExtractor
 
 
@@ -30,8 +30,7 @@ class LangeStrasseEnv:
     # ------------------------------------------------------------------ #
     def reset(self) -> GameState:
         """Start a fresh game and return the first decision-point observation."""
-        self.game: TheGame = TheGame(choice=1)  # plain players; actions come via step()
-        self.game.start_new_turn()
+        self.game = TheGame()  # plain players; actions come via step()
         self.game.advance_to_decision()
         return self.observe()
 
@@ -39,7 +38,7 @@ class LangeStrasseEnv:
         return StateExtractor.extract_state(self.game)
 
     def legal_actions(self) -> list[Action]:
-        return ActionGenerator.get_valid_actions(self.game)
+        return self.game.legal_actions()
 
     @property
     def current_player_idx(self) -> int:
@@ -59,9 +58,7 @@ class LangeStrasseEnv:
         actor = self.game.current_player_idx
         money_before = self.game.players[actor].money
 
-        success, result = self.game.process_dice_action(
-            action.dice_to_keep, action.stop_after
-        )
+        success, result = self.game.apply_action(action)
         if not success:
             raise ValueError(f"Illegal action {action} was passed to step(): {result}")
 

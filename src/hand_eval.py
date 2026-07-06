@@ -8,7 +8,7 @@ Set the hand in config.py:
 
 Then, from the src/ directory:
 
-    python -m algorithms.hand_eval
+    python hand_eval.py
 
 For that hand it lists every legal action with the value the TD model assigns
 it -- the model's estimate of my final game money, in cents -- ranks them, and
@@ -22,13 +22,10 @@ identical across actions and cancel out, which is exactly the point of scoring
 afterstates.
 """
 
-from types import SimpleNamespace
-
-from ai_player import ActionGenerator
 from algorithms.dp import action_value
 from algorithms.td import _model, td_features
 from config import HAND_ACCUMULATED, HAND_AVAILABLE, HAND_KEPT, TD_INTERP
-from game.rules import flatten, merge_kept
+from game.rules import flatten, legal_actions, merge_kept
 from game_state import GameState, PlayerState
 from interp import feature_names
 
@@ -48,19 +45,6 @@ def build_state(available, kept, accumulated) -> GameState:
     )
 
 
-def legal_actions(state: GameState):
-    """Reuse the real action generator by wrapping the state in a minimal stand-in
-    for the ``game.dice_set`` it reads (so the rules can never drift from play)."""
-    n_kept = len(flatten(state.kept_groups))
-    dice_set = SimpleNamespace(
-        game_over=False,
-        kept_groups=state.kept_groups,
-        kept_dice=[True] * n_kept + [False] * (6 - n_kept),  # sum() = number kept
-        get_available_dice_values=lambda: list(state.available_dice),
-    )
-    return ActionGenerator.get_valid_actions(SimpleNamespace(dice_set=dice_set))
-
-
 def _bar(value: float, lo: float, hi: float, width: int = 24) -> str:
     """A little text gauge so the ranking is scannable at a glance."""
     frac = 0.0 if hi == lo else (value - lo) / (hi - lo)
@@ -77,7 +61,7 @@ def main() -> None:
     print(f"\nHand:  available = {HAND_AVAILABLE}   kept = {kept_str}   "
           f"banked this turn = {HAND_ACCUMULATED}")
 
-    actions = legal_actions(state)
+    actions = legal_actions(state.available_dice, state.kept_groups)
     if not actions:
         print("No legal action for this hand (nothing keepable -- a Totale).")
         return
