@@ -25,21 +25,8 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from algorithms.td import _TD_FULL_KEYS, _TD_SMALL_KEYS, TD_MIN_KEYS
+from algorithms.td import VARIANTS
 from config import TD_INTERP
-
-
-def _mode_keys() -> list[str]:
-    if TD_INTERP == "td_full":
-        return _TD_FULL_KEYS + ["bias", "dp_turn_value"]
-    if TD_INTERP == "td_small":
-        return _TD_SMALL_KEYS + ["bias"]
-    if TD_INTERP == "td_min":
-        return TD_MIN_KEYS + ["bias"]
-    if TD_INTERP == "td_dp":
-        return ["dp_turn_value", "bias"]
-
-    raise ValueError(f"Unknown TD mode: {TD_INTERP!r}")
 
 
 def _pretty_name(key: str) -> str:
@@ -73,7 +60,7 @@ def _pretty_name(key: str) -> str:
         "is_final_round": "is final round  (flag)",
         "ends_turn": "this action ENDS my turn  (flag)",
         "bias": "bias  (always 1.0)",
-        "dp_turn_value": "DP turn-value of the action  (/1000)",
+        "dp_value": "DP turn-value of the action  (/1000)",
         "group1": "kept triplet size for #1s",
         "group2": "kept triplet size for #2s",
         "group3": "kept triplet size for #3s",
@@ -87,13 +74,18 @@ def _pretty_name(key: str) -> str:
 
 
 def feature_names() -> list[str]:
-    return [_pretty_name(key) for key in _mode_keys()]
+    # The vector an encoder builds is exactly the model's keys plus a trailing bias
+    # (see td._encode), so its labels follow the same order.
+    return [_pretty_name(key) for key in VARIANTS[TD_INTERP].keys + ["bias"]]
 
 
 def main() -> None:
-    weights_path = Path(__file__).with_name((TD_INTERP).lower() + "_weights.pkl")
+    if TD_INTERP not in VARIANTS:
+        print(f"Unknown TD model {TD_INTERP!r}; choose from {list(VARIANTS)}")
+        return
+    weights_path = VARIANTS[TD_INTERP].path
     if not weights_path.exists():
-        print(f"No weights at {weights_path.name}, train: python -m algorithms.td")
+        print(f"No weights at {weights_path.name}, train: python -m algorithms.td {TD_INTERP}")
         return
 
     with open(weights_path, "rb") as f:

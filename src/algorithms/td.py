@@ -63,13 +63,11 @@ _TD_FULL_KEYS = [
     "dp_value",
 ]
 
-
-
 # Minimal model: only atoms that can actually shift a linear afterstate argmax.
 # Anything constant across a turn's actions (e.g. is_final_round) is useless to a
 # linear value and left out. Money is a closed zero-sum economy, so the three
 # balances span only two dimensions; this model keeps just my own.
-TD_MIN_KEYS = [
+_TD_MIN_KEYS = [
     "group1", "group2", "group3", "group4", "group5", "group6",
     "loose1", "loose5",
     "turn_accumulated",
@@ -80,14 +78,14 @@ TD_MIN_KEYS = [
 ]
 # Raw model: triplet sizes + loose 1s/5s, raw turn scalars, seat offset, all three
 # players. No derived scores, no flags, no DP hint.
-_TD_SMALL_KEYS = TD_MIN_KEYS + [
+_TD_SMALL_KEYS = _TD_MIN_KEYS + [
     "roll_count", "seat_offset", "turn_number", "is_final_round",
     "strich_me",
     "score_p2", "strich_p2", "money_p2",
     "score_p3", "strich_p3", "money_p3",
     
 ]
-_TD_DP = ["dp_value"]
+_TD_DP_KEYS = ["dp_value"]
 # fmt: on
 
 
@@ -180,44 +178,32 @@ class LinearTD:
 
 # --- model variants --------------------------------------------------------- #
 class _Variant:
-    """One TD model: its feature encoder and where its weights live on disk."""
+    """One TD model, fully derived from its name and key list: the feature encoder,
+    the input dimension, and the on-disk weights file all follow from those two."""
 
-    def __init__(self, name, features, dim, filename):
+    def __init__(self, name: str, keys: list[str]):
         self.name = name
-        self.features = features  # (state, action) -> list[float]
-        self.dim = dim
-        self.path = Path(__file__).with_name(filename)
+        self.keys = list(keys)
+        self.features = _encode(self.keys)  # (state, action) -> list[float]
+        self.dim = len(self.keys) + 1  # + bias
+        self.path = Path(__file__).with_name(f"{name}_weights.pkl")
 
     def load(self) -> LinearTD:
         return LinearTD.load(self.dim, self.path)
 
 
-VARIANTS = {
-    "td_full": _Variant(
-        "td_full",
-        td_features,  # == _encode(_TD_FULL_KEYS)
-        len(_TD_FULL_KEYS) + 1,  # + bias  (dp_value is a key)
-        "td_full_weights.pkl",
-    ),
-    "td_small": _Variant(
-        "td_small",
-        _encode(_TD_SMALL_KEYS),
-        len(_TD_SMALL_KEYS) + 1,  # + bias
-        "td_small_weights.pkl",
-    ),
-    "td_min": _Variant(
-        "td_min",
-        _encode(TD_MIN_KEYS),
-        len(TD_MIN_KEYS) + 1,  # + bias
-        "td_min_weights.pkl",
-    ),
-    "td_dp": _Variant(
-        "td_dp",
-        _encode(_TD_DP),
-        len(_TD_DP) + 1,  # + bias
-        "td_dp_weights.pkl",
-    ),
+# The model registry: name -> ordered key list. This is the ONE place a model is
+# defined -- its encoder, dimension, weights file ("<name>_weights.pkl") and its
+# dispatch string all follow automatically. Add a line here and the model just works
+# everywhere (config ALGOS, ai_evaluator/ai_player, interp); no other edits.
+_MODEL_KEYS = {
+    "td_full": _TD_FULL_KEYS,
+    "td_small": _TD_SMALL_KEYS,
+    "td_min": _TD_MIN_KEYS,
+    "td_dp": _TD_DP_KEYS,
 }
+
+VARIANTS = {name: _Variant(name, keys) for name, keys in _MODEL_KEYS.items()}
 
 # Every algorithm string that means "use a TD model" -- the variants plus the bare
 # "td" alias. ai_evaluator/ai_player dispatch off this, so adding a variant above
