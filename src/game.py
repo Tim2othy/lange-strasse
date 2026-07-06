@@ -1,7 +1,7 @@
 """Game Class"""
 
 from ai_player import AIPlayer, Player
-from config import ALGOS
+from config import DEFAULT_ALGORITHMS
 from dice import DiceSet
 from log import log
 
@@ -9,7 +9,7 @@ from log import log
 class TheGame:
     """Main game controller for 3-player Lange Strasse"""
 
-    def __init__(self, choice=1, algorithms=ALGOS):
+    def __init__(self, choice=1, algorithms=DEFAULT_ALGORITHMS):
         self.players = [Player("Player 1"), Player("Player 2"), Player("Player 3")]
         self.current_player_idx = 0
         self.dice_set = DiceSet()

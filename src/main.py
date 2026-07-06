@@ -10,7 +10,7 @@ from collections import Counter
 
 from ai_actions import ActionGenerator
 from ai_player import AIPlayer
-from config import AIS_PLAY, ALGOS, N_GAMES, SEED, VERBOSE
+from config import AIS_PLAY, SEED, VERBOSE
 from game import TheGame
 from game_state import StateExtractor
 from log import log
@@ -175,10 +175,10 @@ def take_human_turn(game: TheGame) -> bool:
     return True
 
 
-def play_interactive():
+def play_interactive(algorithms):
     """Play one game with a human at the keyboard (optionally vs AI opponents)."""
     choice = choose_game_mode()
-    game = TheGame(choice, ALGOS)
+    game = TheGame(choice, algorithms)
     print_rules()
 
     game.start_new_turn()
@@ -194,13 +194,9 @@ def play_interactive():
             return  # human quit
 
 
-def main():
+def main(n_games, algorithms):
     print("🎲 Welcome to 3-Player Lange Strasse! 🎲")
     if AIS_PLAY:
-        simulate(N_GAMES, ALGOS, SEED)
+        simulate(n_games, algorithms, SEED)
     else:
-        play_interactive()
-
-
-if __name__ == "__main__":
-    main()
+        play_interactive(algorithms)
