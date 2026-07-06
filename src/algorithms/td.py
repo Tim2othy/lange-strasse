@@ -307,16 +307,16 @@ def _evaluate(model, games: int = 300) -> None:
     from collections import Counter
 
     import log
-    import main
+    import play
 
     log.VERBOSE = False
-    main.VERBOSE = False
+    play.VERBOSE = False
 
     matchup = [model, "simple", "random"]
     wins: Counter = Counter()
     for g in range(games):
         seats = [matchup[(i + g) % 3] for i in range(3)]
-        game = main.run_ai_game(seats)
+        game = play.run_ai_game(seats)
         assert game.winner is not None
         wins[seats[game.players.index(game.winner)]] += 1
 
