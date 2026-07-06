@@ -145,8 +145,8 @@ class StateExtractor:
         Players are named ego-centrically: ``me`` (acting), ``p2`` (next to act),
         ``p3`` (last). The kept dice are offered two ways -- raw per-face counts
         (``kept{n}``, with ``grouped1``/``grouped5`` for 1s/5s inside a triplet) and
-        triplet sizes (``group{n}``, with ``loose1``/``loose5``) -- because different
-        models want different ones.
+        triplet strength (``group{n}``, geometric in size, with ``loose1``/``loose5``)
+        -- because different models want different ones.
         """
         feats: dict[str, float] = {}
 
@@ -164,8 +164,8 @@ class StateExtractor:
             elif group[0] in loose:
                 loose[group[0]] += len(group)
         for face in range(1, 7):
-            size = triplet_size[face]  # 0 -> 0.0, then 3..6 -> 0.25..1.0
-            feats[f"group{face}"] = (size - 2) / 4.0 if size >= 3 else 0.0
+            size = triplet_size[face]
+            feats[f"group{face}"] = 2 ** (size - 3) / 8.0 if size >= 3 else 0.0
         feats["loose1"] = loose[1] / 6.0
         feats["loose5"] = loose[5] / 6.0
         feats["grouped1"] = triplet_size[1] / 6.0  # 1s sitting inside a triplet
