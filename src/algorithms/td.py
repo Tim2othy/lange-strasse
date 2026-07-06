@@ -32,7 +32,7 @@ import pickle
 from pathlib import Path
 
 from algorithms.dp import action_value
-from config import TD_ALPHA, TD_EPSILON, TD_TRAIN_GAMES, WEIGHTS_VERSION
+from config import MODEL_VARIANT, TD_ALPHA, TD_EPSILON, TD_TRAIN_GAMES, WEIGHTS_VERSION
 from game_state import GameState, StateExtractor
 
 MONEY_SCALE = 100.0  # final money (cents) is divided by this to form the TD target
@@ -225,7 +225,6 @@ VARIANTS = {
         1,
     ),
 }
-_DEFAULT_VARIANT = "td_full"
 
 # Every algorithm string that means "use a TD model" -- the variants plus the bare
 # "td" alias. ai_evaluator/ai_player dispatch off this, so adding a variant above
@@ -236,20 +235,12 @@ TD_ALGORITHMS = {*VARIANTS}
 FEATURE_DIM = VARIANTS["td_full"].dim
 
 
-def _resolve(name: str) -> _Variant:
-    """Map an algorithm string to a variant"""
-    try:
-        return VARIANTS[name]
-    except KeyError:
-        raise ValueError(f"Unknown TD variant: {name!r} (choose from {list(VARIANTS)})")
-
-
 # --- play-time models (lazily loaded, cached per variant) ------------------- #
 _MODELS: dict[str, LinearTD] = {}
 
 
-def _model(variant: str = _DEFAULT_VARIANT) -> LinearTD:
-    v = _resolve(variant)
+def _model() -> LinearTD:
+    v = VARIANTS[MODEL_VARIANT]
     if v.name not in _MODELS:
         model = v.load()
         if model.games_trained:
@@ -266,16 +257,14 @@ def _model(variant: str = _DEFAULT_VARIANT) -> LinearTD:
     return _MODELS[v.name]
 
 
-def td_action_score(state: GameState, action, variant: str = _DEFAULT_VARIANT) -> float:
+def td_action_score(state: GameState, action, variant: str) -> float:
     """Value the AI assigns to `action` (used by ai_evaluator's td algorithms)."""
-    v = _resolve(variant)
-    return _model(v.name).value(v.features(state, action))
+    v = VARIANTS[variant]
+    return _model().value(v.features(state, action))
 
 
 # --- training --------------------------------------------------------------- #
 def train(
-    variant: str = _DEFAULT_VARIANT,
-    n_games: int = TD_TRAIN_GAMES,
     alpha: float = TD_ALPHA,
     epsilon: float = TD_EPSILON,
     seed: "int | None" = None,
@@ -287,14 +276,14 @@ def train(
     import log
     from env import LangeStrasseEnv  # local import to avoid an import cycle
 
-    v = _resolve(variant)
+    v = VARIANTS[MODEL_VARIANT]
     log.VERBOSE = False  # silence game output during training
     if seed is not None:
         random.seed(seed)
 
     model = v.load()
 
-    for game_i in range(1, n_games + 1):
+    for game_i in range(1, TD_TRAIN_GAMES + 1):
         env = LangeStrasseEnv()
         last_features: dict[int, list[float]] = {}  # player -> its last chosen afterstate
         info = {}
@@ -324,15 +313,15 @@ def train(
             model.update(feats, target, alpha)
 
         if log_every and game_i % log_every == 0:
-            print(f"  ...{game_i}/{n_games} games")
+            print(f"  ...{game_i}/{TD_TRAIN_GAMES} games")
 
-    model.games_trained += n_games
+    model.games_trained += TD_TRAIN_GAMES
     model.save(v.path, v.version)
     _MODELS[v.name] = model  # so same-process evaluation uses the fresh weights
     return model
 
 
-def _evaluate(variant: str = _DEFAULT_VARIANT, games: int = 300) -> None:
+def _evaluate(games: int = 300) -> None:
     """Quick arena: this variant vs simple vs random, seats rotated to cancel first-move bias."""
     from collections import Counter
 
@@ -342,7 +331,7 @@ def _evaluate(variant: str = _DEFAULT_VARIANT, games: int = 300) -> None:
     log.VERBOSE = False
     main.VERBOSE = False
 
-    matchup = [variant, "simple", "random"]
+    matchup = [MODEL_VARIANT, "simple", "random"]
     wins: Counter = Counter()
     for g in range(games):
         seats = [matchup[(i + g) % 3] for i in range(3)]
@@ -356,20 +345,14 @@ def _evaluate(variant: str = _DEFAULT_VARIANT, games: int = 300) -> None:
 
 
 if __name__ == "__main__":
-    import sys
     import time
 
-    variant = sys.argv[1] if len(sys.argv) > 1 else _DEFAULT_VARIANT
-    n_games = int(sys.argv[2]) if len(sys.argv) > 2 else TD_TRAIN_GAMES
-    if variant not in VARIANTS:
-        raise SystemExit(f"unknown variant {variant!r}; choose from {list(VARIANTS)}")
-
-    print(f"Training {variant} by self-play for {n_games} games...")
+    print(f"Training {MODEL_VARIANT} by self-play for {TD_TRAIN_GAMES} games...")
     start = time.perf_counter()
-    model = train(variant, n_games)
+    model = train()
     print(
         f"Done in {time.perf_counter() - start:.1f}s. "
         f"Model now trained on {model.games_trained} games total, "
-        f"saved to {VARIANTS[variant].path.name}."
+        f"saved to {VARIANTS[MODEL_VARIANT].path.name}."
     )
-    _evaluate(variant)
+    _evaluate()
