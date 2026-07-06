@@ -105,7 +105,7 @@ def main() -> None:
         print(f"WARNING: {len(names)} labels but {len(w)} weights -- layout drifted.")
 
     print(
-        f"{weights_path.name}  (version {data.get('version')}, dim {data.get('dim')}, "
+        f"{weights_path.name}, dim {data.get('dim')}, "
         f"trained on {data.get('games', '?')} self-play games)"
     )
     print(

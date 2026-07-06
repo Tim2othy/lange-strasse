@@ -147,11 +147,10 @@ class LinearTD:
                 self.w[i] += step * xi
         return step / alpha if alpha else 0.0
 
-    def save(self, path: Path, version: int) -> None:
+    def save(self, path: Path) -> None:
         with open(path, "wb") as f:
             pickle.dump(
                 {
-                    "version": version,
                     "dim": len(self.w),
                     "games": self.games_trained,
                     "w": self.w,
@@ -160,13 +159,13 @@ class LinearTD:
             )
 
     @classmethod
-    def load(cls, dim: int, path: Path, version: int) -> "LinearTD":
+    def load(cls, dim: int, path: Path) -> "LinearTD":
         """Load weights if present and compatible, else a zero-initialized model."""
         if path.exists():
             try:
                 with open(path, "rb") as f:
                     data = pickle.load(f)
-                if data.get("version") == version and data.get("dim") == dim:
+                if data.get("dim") == dim:
                     return cls(dim, data["w"], data.get("games", 0))
             except (
                 pickle.UnpicklingError,
@@ -183,15 +182,14 @@ class LinearTD:
 class _Variant:
     """One TD model: its feature encoder and where its weights live on disk."""
 
-    def __init__(self, name, features, dim, filename, version):
+    def __init__(self, name, features, dim, filename):
         self.name = name
         self.features = features  # (state, action) -> list[float]
         self.dim = dim
         self.path = Path(__file__).with_name(filename)
-        self.version = version
 
     def load(self) -> LinearTD:
-        return LinearTD.load(self.dim, self.path, self.version)
+        return LinearTD.load(self.dim, self.path)
 
 
 VARIANTS = {
@@ -200,28 +198,24 @@ VARIANTS = {
         td_features,  # == _encode(_TD_FULL_KEYS)
         len(_TD_FULL_KEYS) + 1,  # + bias  (dp_value is a key)
         "td_full_weights.pkl",
-        1,
     ),
     "td_small": _Variant(
         "td_small",
         _encode(_TD_SMALL_KEYS),
         len(_TD_SMALL_KEYS) + 1,  # + bias
         "td_small_weights.pkl",
-        1,
     ),
     "td_min": _Variant(
         "td_min",
         _encode(TD_MIN_KEYS),
         len(TD_MIN_KEYS) + 1,  # + bias
         "td_min_weights.pkl",
-        1,
     ),
     "td_dp": _Variant(
         "td_dp",
         _encode(_TD_DP),
         len(_TD_DP) + 1,  # + bias
         "td_dp_weights.pkl",
-        1,
     ),
 }
 
@@ -317,7 +311,7 @@ def train(
             print(f"  ...{game_i}/{n_games} games")
 
     model.games_trained += n_games
-    model.save(v.path, v.version)
+    model.save(v.path)
     _MODELS[v.name] = model  # so same-process evaluation uses the fresh weights
     return model
 
