@@ -1,9 +1,27 @@
 # lange-strasse
 
+# commands
+
 Use
 `cd C:\Users\timtj\GitHub\lange-strasse\src
 python -m algorithms.td td_small 2000` to train model. Change Model name and number.
 
+
+# Results
+
+Simulated 20000 game(s) with ['dp', 'td_small', 'td_dp'] (seats rotated).
+Wins by algorithm:
+- dp        7663  (38%)
+-   td_dp     7626  (38%)
+-   td_small  4711  (24%)
+
+Money by algorithm:
+-   dp       +241680¢  (+12.1¢/game)
+-   td_dp    +224570¢  (+11.2¢/game)
+-  td_small -466250¢  (-23.3¢/game)
+
+
+# td info
 
 This project uses a linear TD value function over *afterstates*.
 
