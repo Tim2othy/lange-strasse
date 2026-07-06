@@ -61,7 +61,7 @@ class GameState:
     # Derived views: computed, never stored -> never inconsistent.
     # ------------------------------------------------------------------ #
     @property
-    def current_player(self) -> PlayerState:
+    def current_player(self) -> PlayerState:  # not being used can maybe be removed
         return self.players[self.current_player_idx]
 
     @property
