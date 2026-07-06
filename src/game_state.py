@@ -275,15 +275,20 @@ class StateExtractor:
 
     @staticmethod
     def select_features(state: GameState, action, keys: list[str]) -> List[float]:
-        """Encode ``action`` as the afterstate atoms named in ``keys``, in order.
+        """The afterstate atoms named in ``keys``, in order (an unknown key raises)."""
+        atoms = StateExtractor.afterstate_atoms(state, action)
+        return [atoms[key] for key in keys]
 
-        This is the one encoder every TD model uses; a model is just its list of
-        keys. An unknown key raises immediately (a fast, obvious failure);
-        ``feature_menu`` lists the available names.
+    @staticmethod
+    def afterstate_atoms(state: GameState, action) -> dict[str, float]:
+        """The named afterstate features for ``action`` -- the feature menu, valued.
+
+        Returns the whole atom dict so a caller can add its own extra atoms (e.g. a
+        solver's value, which can't live here) before selecting. ``feature_menu``
+        lists the names.
         """
         after, ends_turn = StateExtractor._afterstate(state, action)
-        atoms = StateExtractor._atom_features(after, ends_turn)
-        return [atoms[key] for key in keys]
+        return StateExtractor._atom_features(after, ends_turn)
 
     @staticmethod
     def feature_menu() -> list[str]:

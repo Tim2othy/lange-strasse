@@ -46,10 +46,10 @@ DP_SCALE = 1000.0    # normalizer for the DP turn-value feature
 # encoder, no duplicated normalization. (fmt: off keeps the visual grouping below.)
 
 # fmt: off
-# Full model: byte-for-byte the original rich layout (raw dice counts, grouped
-# 1s/5s, derived scores, situation flags, all three players, turn-over flag), so a
-# previously trained td_weights.pkl still applies. td_features also appends the DP
-# solver's turn-value.
+# Full model: the rich encoding -- raw dice counts, grouped 1s/5s, derived scores,
+# situation flags, all three players, the turn-over flag -- plus "dp_value", the DP
+# solver's turn-value (an extra atom; see _EXTRA_ATOMS). "dp_value" is just a key, so
+# add it to / drop it from any model's list to compare with vs. without the solver.
 _TD_FULL_KEYS = [
     "kept1", "kept2", "kept3", "kept4", "kept5", "kept6",
     "grouped1", "grouped5",
@@ -61,6 +61,7 @@ _TD_FULL_KEYS = [
     "score_p3", "strich_p3", "money_p3",
     "turn_number", "is_final_round",
     "ends_turn",
+    "dp_value",
 ]
 
 
@@ -76,6 +77,7 @@ TD_MIN_KEYS = [
     "score_me",
     "money_me",
     "ends_turn",
+    "dp_value"
 ]
 # Raw model: triplet sizes + loose 1s/5s, raw turn scalars, seat offset, all three
 # players. No derived scores, no flags, no DP hint.
@@ -89,26 +91,38 @@ _TD_SMALL_KEYS = TD_MIN_KEYS + [
 # fmt: on
 
 
-def _keys_encoder(keys: list[str]):
-    """A variant feature function: the named afterstate atoms plus a bias term.
-    Defining a hand-picked model is then a one-line VARIANTS entry."""
+# Extra atoms that need the algorithm layer, so they can't be base atoms in
+# game_state (which stays free of the solver, and would otherwise compute these for
+# every model on every action). A model requests one just by listing its key, and it
+# is computed only when some model does. "dp_value" is the DP solver's turn-value.
+_EXTRA_ATOMS = {
+    "dp_value": lambda state, action: action_value(state, action) / DP_SCALE,
+}
+
+
+def _encode(keys: list[str]):
+    """Feature function for a model defined as an ordered list of atom keys.
+
+    Keys are game_state afterstate atoms, optionally plus the solver-layer atoms in
+    _EXTRA_ATOMS (e.g. "dp_value"). A trailing bias term is always added. Extra atoms
+    are computed only when the key list asks for them.
+    """
+    keys = list(keys)
+    extra_keys = [k for k in keys if k in _EXTRA_ATOMS]
 
     def features(state: GameState, action) -> list[float]:
-        f = StateExtractor.select_features(state, action, keys)
+        atoms = StateExtractor.afterstate_atoms(state, action)
+        for k in extra_keys:
+            atoms[k] = _EXTRA_ATOMS[k](state, action)
+        f = [atoms[k] for k in keys]
         f.append(1.0)  # bias
         return f
 
     return features
 
 
-def td_features(state: GameState, action) -> list[float]:
-    """Full-model features: the _TD_FULL_KEYS atoms, a bias term, and the DP solver's
-    own turn-value estimate (an external signal, so it's appended here rather than
-    living in game_state)."""
-    f = StateExtractor.select_features(state, action, _TD_FULL_KEYS)
-    f.append(1.0)  # bias
-    f.append(action_value(state, action) / DP_SCALE)  # DP turn-EV of the action
-    return f
+# Full-model encoder, also exported as ``td_features`` for hand_eval / interp.
+td_features = _encode(_TD_FULL_KEYS)
 
 
 class LinearTD:
@@ -183,21 +197,21 @@ class _Variant:
 VARIANTS = {
     "td_full": _Variant(
         "td_full",
-        td_features,
-        len(_TD_FULL_KEYS) + 2,  # + bias + DP value
+        td_features,  # == _encode(_TD_FULL_KEYS)
+        len(_TD_FULL_KEYS) + 1,  # + bias  (dp_value is a key)
         "td_weights.pkl",
         WEIGHTS_VERSION,
     ),
     "td_small": _Variant(
         "td_small",
-        _keys_encoder(_TD_SMALL_KEYS),
+        _encode(_TD_SMALL_KEYS),
         len(_TD_SMALL_KEYS) + 1,  # + bias
         "td_small_weights.pkl",
         1,
     ),
     "td_min": _Variant(
         "td_min",
-        _keys_encoder(TD_MIN_KEYS),
+        _encode(TD_MIN_KEYS),
         len(TD_MIN_KEYS) + 1,  # + bias
         "td_min_weights.pkl",
         1,
