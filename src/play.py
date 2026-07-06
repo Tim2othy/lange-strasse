@@ -209,7 +209,7 @@ def play_interactive(algorithms):
             return  # human quit
 
 
-def main(n_games, algorithms):
+def play(n_games, algorithms):
     print("🎲 Welcome to 3-Player Lange Strasse! 🎲")
     if AIS_PLAY:
         simulate(n_games, algorithms, SEED)

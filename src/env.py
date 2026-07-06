@@ -1,9 +1,9 @@
 """Headless RL environment wrapping TheGame.
 
-This is a *library*, not a runnable script -- run everything through main.py.
+This is a *library*, not a runnable script -- run everything through play.py.
 It exists for the one case that differs from a normal game: an external learner
 that supplies actions one step at a time and reads rewards back. (A normal
-AI-vs-AI game, where each player decides for itself, is driven by main.py and
+AI-vs-AI game, where each player decides for itself, is driven by play.py and
 does not need this.)
 
 The game's players are plain score/money holders here -- their ``choose_action``
