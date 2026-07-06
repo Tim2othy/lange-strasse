@@ -32,7 +32,6 @@ import pickle
 from pathlib import Path
 
 from algorithms.dp import action_value
-from config import MODEL_VARIANT, TD_ALPHA, TD_EPSILON, TD_TRAIN_GAMES, WEIGHTS_VERSION
 from game_state import GameState, StateExtractor
 
 MONEY_SCALE = 100.0  # final money (cents) is divided by this to form the TD target
@@ -201,7 +200,7 @@ VARIANTS = {
         td_features,  # == _encode(_TD_FULL_KEYS)
         len(_TD_FULL_KEYS) + 1,  # + bias  (dp_value is a key)
         "td_full_weights.pkl",
-        WEIGHTS_VERSION,
+        1,
     ),
     "td_small": _Variant(
         "td_small",
@@ -239,8 +238,8 @@ FEATURE_DIM = VARIANTS["td_full"].dim
 _MODELS: dict[str, LinearTD] = {}
 
 
-def _model() -> LinearTD:
-    v = VARIANTS[MODEL_VARIANT]
+def _model(model_variant) -> LinearTD:
+    v = VARIANTS[model_variant]
     if v.name not in _MODELS:
         model = v.load()
         if model.games_trained:
@@ -260,13 +259,15 @@ def _model() -> LinearTD:
 def td_action_score(state: GameState, action, variant: str) -> float:
     """Value the AI assigns to `action` (used by ai_evaluator's td algorithms)."""
     v = VARIANTS[variant]
-    return _model().value(v.features(state, action))
+    return _model(variant).value(v.features(state, action))
 
 
 # --- training --------------------------------------------------------------- #
 def train(
-    alpha: float = TD_ALPHA,
-    epsilon: float = TD_EPSILON,
+    model_variant: str,
+    alpha: float,
+    epsilon: float,
+    n_games: int,
     seed: "int | None" = None,
     log_every: int = 500,
 ) -> LinearTD:
@@ -276,14 +277,14 @@ def train(
     import log
     from env import LangeStrasseEnv  # local import to avoid an import cycle
 
-    v = VARIANTS[MODEL_VARIANT]
+    v = VARIANTS[model_variant]
     log.VERBOSE = False  # silence game output during training
     if seed is not None:
         random.seed(seed)
 
     model = v.load()
 
-    for game_i in range(1, TD_TRAIN_GAMES + 1):
+    for game_i in range(1, n_games + 1):
         env = LangeStrasseEnv()
         last_features: dict[int, list[float]] = {}  # player -> its last chosen afterstate
         info = {}
@@ -313,15 +314,15 @@ def train(
             model.update(feats, target, alpha)
 
         if log_every and game_i % log_every == 0:
-            print(f"  ...{game_i}/{TD_TRAIN_GAMES} games")
+            print(f"  ...{game_i}/{n_games} games")
 
-    model.games_trained += TD_TRAIN_GAMES
+    model.games_trained += n_games
     model.save(v.path, v.version)
     _MODELS[v.name] = model  # so same-process evaluation uses the fresh weights
     return model
 
 
-def _evaluate(games: int = 300) -> None:
+def _evaluate(model, games: int = 300) -> None:
     """Quick arena: this variant vs simple vs random, seats rotated to cancel first-move bias."""
     from collections import Counter
 
@@ -331,7 +332,7 @@ def _evaluate(games: int = 300) -> None:
     log.VERBOSE = False
     main.VERBOSE = False
 
-    matchup = [MODEL_VARIANT, "simple", "random"]
+    matchup = [model, "simple", "random"]
     wins: Counter = Counter()
     for g in range(games):
         seats = [matchup[(i + g) % 3] for i in range(3)]
@@ -344,15 +345,15 @@ def _evaluate(games: int = 300) -> None:
         print(f"  {algo:8s}: {wins[algo]:3d} ({wins[algo] / games:.0%})")
 
 
-def run_training():
+def run_training(model_variant, alpha, epsilon, n_games):
     import time
 
-    print(f"Training {MODEL_VARIANT} by self-play for {TD_TRAIN_GAMES} games...")
+    print(f"Training {model_variant} by self-play for {n_games} games...")
     start = time.perf_counter()
-    model = train()
+    model = train(model_variant, alpha, epsilon, n_games)
     print(
         f"Done in {time.perf_counter() - start:.1f}s. "
         f"Model now trained on {model.games_trained} games total, "
-        f"saved to {VARIANTS[MODEL_VARIANT].path.name}."
+        f"saved to {VARIANTS[model_variant].path.name}."
     )
-    _evaluate()
+    _evaluate(model_variant)
