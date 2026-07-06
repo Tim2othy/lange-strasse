@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 from ai_actions import Action
 from ai_evaluator import random_action, best_action
+from algorithms.td import TD_ALGORITHMS
 from log import log
 
 
@@ -49,8 +50,8 @@ class AIPlayer(Player):
                 return random_action(state, actions)
             case "dp":
                 return best_action(state, actions, "dp")
-            case "td" | "td_full" | "td_small":
-                return best_action(state, actions, self.ai_type)
+            case name if name in TD_ALGORITHMS:
+                return best_action(state, actions, name)
             case _:
                 raise ValueError(f"Unknown AI type: {self.ai_type}")
 

@@ -3,9 +3,10 @@
 Design: ``GameState`` stores only the *minimal, non-derivable* ("Markov") state
 of a decision point. Anything computable from those fields is exposed as a
 ``@property`` (computed on access, so it can never go stale) rather than being
-stored. The rich, redundant representation a learning model wants lives in
-``to_vector`` -- that's the right place for derived features, because handing a
-network the score/flags directly makes it learn far faster than re-deriving them.
+stored. The richer, redundant representation a learning model wants is built by
+``StateExtractor``: ``_atom_features`` computes every feature once (each with a
+name), and a model is just a list of those names (see ``select_features`` and the
+``TD_*_KEYS`` lists in ``algorithms/td.py``).
 """
 
 from collections import Counter
@@ -131,129 +132,84 @@ class StateExtractor:
             is_final_round=game.final_turn,
         )
 
+    # ------------------------------------------------------------------ #
+    # Feature menu: the single place any feature is computed. A model is an
+    # ordered list of atom names (see ``select_features`` and the TD_*_KEYS
+    # lists in algorithms/td.py). Adding a model to compare is just choosing
+    # keys -- no new encoder, no duplicated normalization.
+    # ------------------------------------------------------------------ #
     @staticmethod
-    def to_vector(state: GameState) -> List[float]:
-        """Encode a GameState as a fixed-length, normalized feature vector.
+    def _atom_features(after: GameState, ends_turn: bool) -> dict[str, float]:
+        """Every atomic afterstate feature, keyed by name and normalized.
 
-        Players are ordered ego-centrically (current player first) so the model
-        generalizes across seats. Derived features (scores, completion flags) are
-        included on purpose -- the redundancy speeds learning.
-
-        Returns a plain list of floats (no numpy dependency in the game code); an
-        RL trainer can wrap it with ``np.asarray(vec, dtype=np.float32)``.
+        Players are named ego-centrically: ``me`` (acting), ``p2`` (next to act),
+        ``p3`` (last). The kept dice are offered two ways -- raw per-face counts
+        (``kept{n}``, with ``grouped1``/``grouped5`` for 1s/5s inside a triplet) and
+        triplet sizes (``group{n}``, with ``loose1``/``loose5``) -- because different
+        models want different ones. ``avail{n}`` is always 0 in an afterstate (no
+        dice are showing yet) and exists only so the full model's layout stays fixed.
         """
-        vector: List[float] = []
+        feats: dict[str, float] = {}
 
-        # Dice as per-face counts (position-free, fixed length).
-        available_counts = Counter(state.available_dice)
-        kept_counts = Counter(flatten(state.kept_groups))
+        available_counts = Counter(after.available_dice)  # empty in an afterstate
+        kept_counts = Counter(flatten(after.kept_groups))
         for face in range(1, 7):
-            vector.append(available_counts.get(face, 0) / 6.0)
+            feats[f"avail{face}"] = available_counts.get(face, 0) / 6.0
         for face in range(1, 7):
-            vector.append(kept_counts.get(face, 0) / 6.0)
+            feats[f"kept{face}"] = kept_counts.get(face, 0) / 6.0
 
-        # 1s and 5s that sit in a triplet (extendable -- each extra die doubles
-        # the group) vs. kept individually. The plain counts + total score can't
-        # recover this distinction. Only 1s/5s are ambiguous: a kept 2/3/4/6 is
-        # always part of a triplet.
-        grouped = Counter()
-        for group in state.kept_groups:
-            if len(group) >= 3:
-                grouped[group[0]] += len(group)
-        vector.append(grouped.get(1, 0) / 6.0)
-        vector.append(grouped.get(5, 0) / 6.0)
-
-        # Scoring (derived).
-        vector.append(state.current_set_score / 2000.0)
-        vector.append(state.turn_accumulated_score / 10000.0)
-        vector.append(state.total_turn_score / 10000.0)
-        vector.append(state.roll_count / 6.0)
-        vector.append((6 - sum(kept_counts.values())) / 6.0)  # dice left to roll
-
-        # Situation flags (derived).
-        vector.append(1.0 if state.can_complete_lange_strasse else 0.0)
-        vector.append(1.0 if state.can_complete_talheim else 0.0)
-        vector.append(1.0 if state.can_keep_any else 0.0)
-
-        # Players, current player first.
-        n = len(state.players)
-        for offset in range(n):
-            p = state.players[(state.current_player_idx + offset) % n]
-            vector.append(p.total_score / 10000.0)
-            vector.append(1.0 if p.has_strich else 0.0)
-            vector.append(p.money / 1000.0)
-
-        # Game context.
-        vector.append(state.turn_number / 20.0)
-        vector.append(1.0 if state.is_final_round else 0.0)
-
-        return vector
-
-    @staticmethod
-    def to_vector_small(state: GameState) -> List[float]:
-        """A deliberately *raw* encoding, for the ``td_small`` model: the state as
-        close to its stored fields as possible, with no derived scores, completion
-        flags, or solver hints. It measures how far a linear value function gets on
-        raw data alone.
-
-        One consequence of "raw": a triplet's score doubles with every extra die,
-        but here a triplet is encoded only by its size, so a linear model over this
-        vector can't reproduce that curve. That gap -- versus ``to_vector``, which
-        hands the model the score directly -- is exactly what this variant exposes.
-
-        Layout: kept dice (triplet size per face 1-6, then loose 1s and 5s), the
-        raw turn-flow scalars, the acting player's seat offset from the starter, the
-        game context, then the players ego-centrically (acting player first). No
-        available-dice slots -- an afterstate has none.
-        """
-        vector: List[float] = []
-
-        # Kept dice. Faces 2/3/4/6 can only be kept as a triplet+, so one size slot
-        # each. 1s and 5s can be a triplet *and* loose singles at the same time, so
-        # they add a loose-count slot below. (merge_kept keeps at most one triplet
-        # group per face, and stores loose 1s/5s as separate length-1 groups.)
+        # merge_kept keeps at most one triplet group per face and stores loose
+        # 1s/5s as separate length-1 groups, so triplet_size[face] is well-defined.
         triplet_size = {face: 0 for face in range(1, 7)}
         loose = {1: 0, 5: 0}
-        for group in state.kept_groups:
+        for group in after.kept_groups:
             if len(group) >= 3:
                 triplet_size[group[0]] = len(group)
             elif group[0] in loose:
                 loose[group[0]] += len(group)
         for face in range(1, 7):
-            size = triplet_size[face]
-            # size 0 -> 0.0, then 3 -> 0.25, 4 -> 0.5, 5 -> 0.75, 6 -> 1.0
-            vector.append((size - 2) / 4.0 if size >= 3 else 0.0)
-        vector.append(loose[1] / 6.0)
-        vector.append(loose[5] / 6.0)
+            size = triplet_size[face]  # 0 -> 0.0, then 3..6 -> 0.25..1.0
+            feats[f"group{face}"] = (size - 2) / 4.0 if size >= 3 else 0.0
+        feats["loose1"] = loose[1] / 6.0
+        feats["loose5"] = loose[5] / 6.0
+        feats["grouped1"] = triplet_size[1] / 6.0  # 1s sitting inside a triplet
+        feats["grouped5"] = triplet_size[5] / 6.0  # 5s sitting inside a triplet
 
-        # Raw turn-flow scalars (no derived set/turn score).
-        vector.append(state.turn_accumulated_score / 10000.0)
-        vector.append(state.roll_count / 6.0)
+        # Turn flow (raw + derived scores).
+        feats["current_set_score"] = after.current_set_score / 2000.0
+        feats["turn_accumulated"] = after.turn_accumulated_score / 10000.0
+        feats["total_turn_score"] = after.total_turn_score / 10000.0
+        feats["roll_count"] = after.roll_count / 6.0
+        feats["dice_left"] = (6 - sum(kept_counts.values())) / 6.0
 
-        # Seat offset from the starter: 0 = I started this round (both opponents
-        # still get a turn), n-1 = I'm last (the round ends on me). This is the
-        # end-game asymmetry that current/starting player index encode together.
-        n = len(state.players)
-        offset = (state.current_player_idx - state.starting_player_idx) % n
-        vector.append(offset / (n - 1) if n > 1 else 0.0)
+        # Situation flags (derived).
+        feats["flag_lange_strasse"] = 1.0 if after.can_complete_lange_strasse else 0.0
+        feats["flag_talheim"] = 1.0 if after.can_complete_talheim else 0.0
+        feats["flag_keep_any"] = 1.0 if after.can_keep_any else 0.0
 
-        # Game context.
-        vector.append(state.turn_number / 20.0)
-        vector.append(1.0 if state.is_final_round else 0.0)
+        # Position in the round / game.
+        n = len(after.players)
+        offset = (after.current_player_idx - after.starting_player_idx) % n
+        feats["seat_offset"] = offset / (n - 1) if n > 1 else 0.0
+        feats["turn_number"] = after.turn_number / 20.0
+        feats["is_final_round"] = 1.0 if after.is_final_round else 0.0
+        feats["ends_turn"] = 1.0 if ends_turn else 0.0
 
-        # Players, acting player first (seat-agnostic).
-        for seat in range(n):
-            p = state.players[(state.current_player_idx + seat) % n]
-            vector.append(p.total_score / 10000.0)
-            vector.append(1.0 if p.has_strich else 0.0)
-            vector.append(p.money / 1000.0)
+        # Players, acting player first.
+        labels = ["me", "p2", "p3"]
+        for i in range(n):
+            p = after.players[(after.current_player_idx + i) % n]
+            label = labels[i] if i < len(labels) else f"p{i + 1}"
+            feats[f"score_{label}"] = p.total_score / 10000.0
+            feats[f"strich_{label}"] = 1.0 if p.has_strich else 0.0
+            feats[f"money_{label}"] = p.money / 1000.0
 
-        return vector
+        return feats
 
     # ------------------------------------------------------------------ #
-    # Afterstate: the position an action leaves behind (shared by every
-    # action encoder). Only the feature *encoding* differs between models;
-    # this transition lives in exactly one place.
+    # Afterstate: the position an action leaves behind, before the next
+    # roll, from the acting player's perspective. Every model shares this
+    # transition and differs only in which atoms it reads from the result.
     # ------------------------------------------------------------------ #
     @staticmethod
     def _afterstate(state: GameState, action) -> tuple[GameState, bool]:
@@ -304,66 +260,29 @@ class StateExtractor:
         return after, ends_turn
 
     @staticmethod
-    def action_features(state: GameState, action) -> List[float]:
-        """Full feature vector of the position reached by ``action``.
+    def select_features(state: GameState, action, keys: list[str]) -> List[float]:
+        """Encode ``action`` as the afterstate atoms named in ``keys``, in order.
 
-        The afterstate (see ``_afterstate``) encoded with ``to_vector`` plus a flag
-        for whether the turn ended. Algorithm-specific extras (e.g. a solver's own
-        value estimate) are appended by the algorithm, not here, so this stays free
-        of any dependency on the algorithm layer.
+        This is the one encoder every TD model uses; a model is just its list of
+        keys. An unknown key raises immediately (a fast, obvious failure);
+        ``feature_menu`` lists the available names.
         """
         after, ends_turn = StateExtractor._afterstate(state, action)
-        features = StateExtractor.to_vector(after)
-        features.append(1.0 if ends_turn else 0.0)  # did the turn just end?
-        return features
+        atoms = StateExtractor._atom_features(after, ends_turn)
+        return [atoms[key] for key in keys]
 
     @staticmethod
-    def action_features_small(state: GameState, action) -> List[float]:
-        """Raw counterpart of ``action_features`` for the ``td_small`` model: the
-        same afterstate, encoded with ``to_vector_small`` plus the turn-over flag.
-        """
-        after, ends_turn = StateExtractor._afterstate(state, action)
-        features = StateExtractor.to_vector_small(after)
-        features.append(1.0 if ends_turn else 0.0)
-        return features
-
-    # ------------------------------------------------------------------ #
-    # Encoding lengths (for sizing a model's input layer). Each is measured
-    # from a zeroed state so it can never drift from the encoder it names.
-    # ------------------------------------------------------------------ #
-    @staticmethod
-    def _dummy_state(num_players: int) -> GameState:
-        """A zeroed state used only to measure an encoding's length."""
-        return GameState(
+    def feature_menu() -> list[str]:
+        """All atom names available to ``select_features`` (in _atom_features order)."""
+        blank = GameState(
             available_dice=[],
             kept_groups=[],
             turn_accumulated_score=0,
             roll_count=0,
-            players=[PlayerState(0, False, 0) for _ in range(num_players)],
+            players=[PlayerState(0, False, 0) for _ in range(3)],
             current_player_idx=0,
             starting_player_idx=0,
             turn_number=0,
             is_final_round=False,
         )
-
-    @staticmethod
-    def vector_size(num_players: int = 3) -> int:
-        """Length of a to_vector() encoding."""
-        return len(StateExtractor.to_vector(StateExtractor._dummy_state(num_players)))
-
-    @staticmethod
-    def vector_size_small(num_players: int = 3) -> int:
-        """Length of a to_vector_small() encoding."""
-        return len(
-            StateExtractor.to_vector_small(StateExtractor._dummy_state(num_players))
-        )
-
-    @staticmethod
-    def action_feature_size(num_players: int = 3) -> int:
-        """Length of an action_features() vector (to_vector + the turn-over flag)."""
-        return StateExtractor.vector_size(num_players) + 1
-
-    @staticmethod
-    def action_feature_size_small(num_players: int = 3) -> int:
-        """Length of an action_features_small() vector (to_vector_small + flag)."""
-        return StateExtractor.vector_size_small(num_players) + 1
+        return list(StateExtractor._atom_features(blank, False))

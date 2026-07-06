@@ -16,14 +16,16 @@ intermediate money flow (Strasse, Totale, end-game settlement) is already part o
 final total, so a terminal reward is complete; TD bootstrapping carries the credit
 back through the turns.
 
-Two variants share all of this and differ only in their feature encoding:
+Variants share all of this and differ only in which afterstate atoms they encode
+(see the TD_*_KEYS lists below and game_state._atom_features):
 
-  * ``td_full``  -- the rich hand-crafted encoding (derived scores, completion flags)
-    plus the DP solver's turn-value as an extra feature.
-  * ``td_small`` -- a deliberately raw encoding (see game_state.to_vector_small): no
-    derived scores, no flags, no DP hint. A baseline for "how far does raw data get?".
+  * ``td_full``  -- the rich encoding (raw dice counts, derived scores, completion
+    flags, all players) plus the DP solver's turn-value as an extra feature.
+  * ``td_small`` -- a deliberately raw encoding: triplet sizes, loose 1s/5s, raw
+    scalars, no flags, no DP hint. "How far does raw data get?".
+  * ``td_min``   -- only atoms that can actually shift a linear afterstate argmax.
 
-Train one with:  python -m algorithms.td [td_full|td_small] [n_games]
+Train one with:  python -m algorithms.td [td_full|td_small|td_min] [n_games]
 """
 
 import pickle
@@ -38,23 +40,77 @@ DP_SCALE = 1000.0    # normalizer for the DP turn-value feature
 
 
 # --- feature encodings ------------------------------------------------------ #
+# Each model is an ordered list of afterstate atom names; game_state computes every
+# atom once (see StateExtractor._atom_features), and a model just picks which atoms
+# it reads. Adding a model to compare = a new key list + a VARIANTS entry; no new
+# encoder, no duplicated normalization. (fmt: off keeps the visual grouping below.)
+
+# fmt: off
+# Full model: byte-for-byte the original rich layout (raw dice counts, grouped
+# 1s/5s, derived scores, situation flags, all three players, turn-over flag), so a
+# previously trained td_weights.pkl still applies. td_features also appends the DP
+# solver's turn-value.
+_TD_FULL_KEYS = [
+    "avail1", "avail2", "avail3", "avail4", "avail5", "avail6",
+    "kept1", "kept2", "kept3", "kept4", "kept5", "kept6",
+    "grouped1", "grouped5",
+    "current_set_score", "turn_accumulated", "total_turn_score", "roll_count",
+    "dice_left",
+    "flag_lange_strasse", "flag_talheim", "flag_keep_any",
+    "score_me", "strich_me", "money_me",
+    "score_p2", "strich_p2", "money_p2",
+    "score_p3", "strich_p3", "money_p3",
+    "turn_number", "is_final_round",
+    "ends_turn",
+]
+
+# Raw model: triplet sizes + loose 1s/5s, raw turn scalars, seat offset, all three
+# players. No derived scores, no flags, no DP hint.
+_TD_SMALL_KEYS = [
+    "group1", "group2", "group3", "group4", "group5", "group6",
+    "loose1", "loose5",
+    "turn_accumulated", "roll_count", "seat_offset", "turn_number", "is_final_round",
+    "score_me", "strich_me", "money_me",
+    "score_p2", "strich_p2", "money_p2",
+    "score_p3", "strich_p3", "money_p3",
+    "ends_turn",
+]
+
+# Minimal model: only atoms that can actually shift a linear afterstate argmax.
+# Anything constant across a turn's actions (e.g. is_final_round) is useless to a
+# linear value and left out. Money is a closed zero-sum economy, so the three
+# balances span only two dimensions; this model keeps just my own.
+TD_MIN_KEYS = [
+    "group1", "group2", "group3", "group4", "group5", "group6",
+    "loose1", "loose5",
+    "turn_accumulated",
+    "score_me",
+    "money_me",
+    "ends_turn",
+]
+# fmt: on
+
+
+def _keys_encoder(keys: list[str]):
+    """A variant feature function: the named afterstate atoms plus a bias term.
+    Defining a hand-picked model is then a one-line VARIANTS entry."""
+
+    def features(state: GameState, action) -> list[float]:
+        f = StateExtractor.select_features(state, action, keys)
+        f.append(1.0)  # bias
+        return f
+
+    return features
+
+
 def td_features(state: GameState, action) -> list[float]:
-    """Full-model features: the afterstate encoding, plus a bias term and the DP
-    solver's own turn-value estimate of the action. The generic position features
-    come from game_state; only these algorithm-specific extras are appended here so
-    game_state stays free of any dependency on the solver.
-    """
-    features = StateExtractor.action_features(state, action)
-    features.append(1.0)  # bias
-    features.append(action_value(state, action) / DP_SCALE)  # DP turn-EV of the action
-    return features
-
-
-def td_features_small(state: GameState, action) -> list[float]:
-    """Raw-model features: the raw afterstate encoding plus a bias term."""
-    features = StateExtractor.action_features_small(state, action)
-    features.append(1.0)  # bias
-    return features
+    """Full-model features: the _TD_FULL_KEYS atoms, a bias term, and the DP solver's
+    own turn-value estimate (an external signal, so it's appended here rather than
+    living in game_state)."""
+    f = StateExtractor.select_features(state, action, _TD_FULL_KEYS)
+    f.append(1.0)  # bias
+    f.append(action_value(state, action) / DP_SCALE)  # DP turn-EV of the action
+    return f
 
 
 class LinearTD:
@@ -130,19 +186,31 @@ VARIANTS = {
     "td_full": _Variant(
         "td_full",
         td_features,
-        StateExtractor.action_feature_size() + 2,  # + bias + DP value
+        len(_TD_FULL_KEYS) + 2,  # + bias + DP value
         "td_weights.pkl",
         WEIGHTS_VERSION,
     ),
     "td_small": _Variant(
         "td_small",
-        td_features_small,
-        StateExtractor.action_feature_size_small() + 1,  # + bias
+        _keys_encoder(_TD_SMALL_KEYS),
+        len(_TD_SMALL_KEYS) + 1,  # + bias
         "td_small_weights.pkl",
+        1,
+    ),
+    "td_min": _Variant(
+        "td_min",
+        _keys_encoder(TD_MIN_KEYS),
+        len(TD_MIN_KEYS) + 1,  # + bias
+        "td_min_weights.pkl",
         1,
     ),
 }
 _DEFAULT_VARIANT = "td_full"
+
+# Every algorithm string that means "use a TD model" -- the variants plus the bare
+# "td" alias. ai_evaluator/ai_player dispatch off this, so adding a variant above
+# is all it takes to make it playable; no dispatch code needs to change.
+TD_ALGORITHMS = {"td", *VARIANTS}
 
 # Kept for callers that predate the variants (e.g. hand_eval, interp): the full dim.
 FEATURE_DIM = VARIANTS["td_full"].dim
