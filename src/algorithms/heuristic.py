@@ -1,6 +1,6 @@
-from game.ai_actions import Action
+from ai_player import Action
 from game_state import GameState
-from game.scoring import flatten, is_lange_strasse, score_groups, talheim_score
+from game.rules import flatten, is_lange_strasse, score_groups, talheim_score
 
 
 class MoveEvaluator:

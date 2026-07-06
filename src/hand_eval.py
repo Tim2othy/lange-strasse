@@ -24,13 +24,13 @@ afterstates.
 
 from types import SimpleNamespace
 
-from game.ai_actions import ActionGenerator
+from ai_player import ActionGenerator
 from algorithms.dp import action_value
 from algorithms.td import _model, td_features
 from config import HAND_ACCUMULATED, HAND_AVAILABLE, HAND_KEPT, TD_INTERP
+from game.rules import flatten, merge_kept
 from game_state import GameState, PlayerState
 from interp import feature_names
-from game.scoring import flatten, merge_kept
 
 
 def build_state(available, kept, accumulated) -> GameState:
