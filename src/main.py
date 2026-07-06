@@ -6,6 +6,7 @@
 """
 
 import random
+import sys
 from collections import Counter
 
 from ai_actions import ActionGenerator
@@ -43,6 +44,11 @@ def run_ai_game(algorithms) -> TheGame:
     return game
 
 
+def _progress_bar(percent: int, width: int = 10) -> str:
+    filled = percent * width // 100
+    return "[" + "#" * filled + " " * (width - filled) + "]"
+
+
 def simulate(n_games, algorithms, seed=None):
     """Play ``n_games`` all-AI games and report wins and cumulative money by algorithm.
 
@@ -55,6 +61,7 @@ def simulate(n_games, algorithms, seed=None):
     wins = Counter()
     money = Counter()  # cumulative end-of-game money (¢) by algorithm
     n = len(algorithms)
+    next_percent = 10
     for g in range(n_games):
         seat_algorithms = [algorithms[(i + g) % n] for i in range(n)]  # rotate seats
         game = run_ai_game(seat_algorithms)
@@ -62,6 +69,14 @@ def simulate(n_games, algorithms, seed=None):
         wins[seat_algorithms[game.players.index(game.winner)]] += 1
         for seat, algorithm in enumerate(seat_algorithms):
             money[algorithm] += game.players[seat].money
+
+        progress = int((g + 1) * 100 / n_games)
+        while next_percent <= 100 and progress >= next_percent:
+            sys.stdout.write(f"\r{_progress_bar(next_percent)} {next_percent:3d}%")
+            sys.stdout.flush()
+            next_percent += 10
+
+    sys.stdout.write("\n")
 
     print(f"\nSimulated {n_games} game(s) with {algorithms} (seats rotated).")
     print("Wins by algorithm:")
