@@ -63,17 +63,7 @@ _TD_FULL_KEYS = [
     "ends_turn",
 ]
 
-# Raw model: triplet sizes + loose 1s/5s, raw turn scalars, seat offset, all three
-# players. No derived scores, no flags, no DP hint.
-_TD_SMALL_KEYS = [
-    "group1", "group2", "group3", "group4", "group5", "group6",
-    "loose1", "loose5",
-    "turn_accumulated", "roll_count", "seat_offset", "turn_number", "is_final_round",
-    "score_me", "strich_me", "money_me",
-    "score_p2", "strich_p2", "money_p2",
-    "score_p3", "strich_p3", "money_p3",
-    "ends_turn",
-]
+
 
 # Minimal model: only atoms that can actually shift a linear afterstate argmax.
 # Anything constant across a turn's actions (e.g. is_final_round) is useless to a
@@ -86,6 +76,15 @@ TD_MIN_KEYS = [
     "score_me",
     "money_me",
     "ends_turn",
+]
+# Raw model: triplet sizes + loose 1s/5s, raw turn scalars, seat offset, all three
+# players. No derived scores, no flags, no DP hint.
+_TD_SMALL_KEYS = TD_MIN_KEYS + [
+    "roll_count", "seat_offset", "turn_number", "is_final_round",
+    "strich_me",
+    "score_p2", "strich_p2", "money_p2",
+    "score_p3", "strich_p3", "money_p3",
+    
 ]
 # fmt: on
 
