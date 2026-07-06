@@ -344,7 +344,7 @@ def _evaluate(games: int = 300) -> None:
         print(f"  {algo:8s}: {wins[algo]:3d} ({wins[algo] / games:.0%})")
 
 
-if __name__ == "__main__":
+def run_training():
     import time
 
     print(f"Training {MODEL_VARIANT} by self-play for {TD_TRAIN_GAMES} games...")
