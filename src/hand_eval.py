@@ -25,9 +25,9 @@ afterstates.
 from types import SimpleNamespace
 
 from ai_actions import ActionGenerator
+from algorithms.dp import action_value
 from algorithms.interp import feature_names
 from algorithms.td import _model, td_features
-from algorithms.dp import action_value
 from config import HAND_ACCUMULATED, HAND_AVAILABLE, HAND_KEPT
 from game_state import GameState, PlayerState
 from scoring import flatten, merge_kept
