@@ -148,12 +148,7 @@ class LinearTD:
     def save(self, path: Path) -> None:
         with open(path, "wb") as f:
             pickle.dump(
-                {
-                    "dim": len(self.w),
-                    "games": self.games_trained,
-                    "w": self.w,
-                },
-                f,
+                {"dim": len(self.w), "games": self.games_trained, "w": self.w}, f
             )
 
     @classmethod
