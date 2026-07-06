@@ -190,7 +190,7 @@ class _Variant:
 # The model registry: name -> ordered key list. This is the ONE place a model is
 # defined -- its encoder, dimension, weights file ("<name>_weights.pkl") and its
 # dispatch string all follow automatically. Add a line here and the model just works
-# everywhere (config ALGOS, ai_evaluator/ai_player, interp); no other edits.
+# everywhere (config ALGOS, ai_player, interp); no other edits.
 _MODEL_KEYS = {
     "td_full": _TD_FULL_KEYS,
     "td_small": _TD_SMALL_KEYS,
@@ -201,7 +201,7 @@ _MODEL_KEYS = {
 VARIANTS = {name: _Variant(name, keys) for name, keys in _MODEL_KEYS.items()}
 
 # Every algorithm string that means "use a TD model" -- the variants plus the bare
-# "td" alias. ai_evaluator/ai_player dispatch off this, so adding a variant above
+# "td" alias. ai_player dispatches off this, so adding a variant above
 # is all it takes to make it playable; no dispatch code needs to change.
 TD_ALGORITHMS = {*VARIANTS}
 
@@ -232,7 +232,7 @@ def _model(model_variant) -> LinearTD:
 
 
 def td_action_score(state: GameState, action, variant: str) -> float:
-    """Value the AI assigns to `action` (used by ai_evaluator's td algorithms)."""
+    """Value the AI assigns to `action` (used by AIPlayer's td algorithms)."""
     v = VARIANTS[variant]
     return _model(variant).value(v.features(state, action))
 

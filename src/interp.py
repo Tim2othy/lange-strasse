@@ -1,6 +1,6 @@
 """Inspect the trained linear TD weights.
 
-    python -m algorithms.weights      (run from the src/ directory)
+    python interp.py      (run from the src/ directory)
 
 The TD value is linear -- V(afterstate) = w . features -- so each weight is the
 model's opinion about one feature, in isolation. The learning target is
