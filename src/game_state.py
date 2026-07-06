@@ -213,7 +213,8 @@ class StateExtractor:
         acting player's perspective -- plus whether the action ended the turn.
 
         Banking the turn on a stop or Talheim, taking hot dice when all six are
-        kept, otherwise leaving the set at risk.
+        kept, otherwise leaving the set at risk. A completed Lange Strasse also pays
+        the mover immediately, so the afterstate money reflects that transfer.
         """
         prev = state.turn_accumulated_score
         merged = merge_kept(state.kept_groups, action.dice_to_keep)
@@ -227,6 +228,23 @@ class StateExtractor:
         players = [
             PlayerState(p.total_score, p.has_strich, p.money) for p in state.players
         ]
+
+        # A newly completed Lange Strasse pays the mover immediately -- 50c (100c for
+        # a Super Strasse, completed on the 3rd+ roll) from every opponent -- so this
+        # mirrors game.handle_lange_strasse. Without it, money would be identical
+        # across every action at a decision and could never influence the choice.
+        if is_lange_strasse(values) and not is_lange_strasse(
+            flatten(state.kept_groups)
+        ):
+            amount = 200 if state.roll_count >= 3 else 70
+            players = [
+                PlayerState(
+                    p.total_score,
+                    p.has_strich,
+                    p.money + (amount * (len(players) - 1) if i == me else -amount),
+                )
+                for i, p in enumerate(players)
+            ]
 
         if ends_turn:
             # Turn banked: add the turn score to my total; nothing left at risk.
