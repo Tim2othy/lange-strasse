@@ -51,7 +51,6 @@ DP_SCALE = 1000.0    # normalizer for the DP turn-value feature
 # previously trained td_weights.pkl still applies. td_features also appends the DP
 # solver's turn-value.
 _TD_FULL_KEYS = [
-    "avail1", "avail2", "avail3", "avail4", "avail5", "avail6",
     "kept1", "kept2", "kept3", "kept4", "kept5", "kept6",
     "grouped1", "grouped5",
     "current_set_score", "turn_accumulated", "total_turn_score", "roll_count",

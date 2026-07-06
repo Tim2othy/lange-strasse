@@ -146,15 +146,11 @@ class StateExtractor:
         ``p3`` (last). The kept dice are offered two ways -- raw per-face counts
         (``kept{n}``, with ``grouped1``/``grouped5`` for 1s/5s inside a triplet) and
         triplet sizes (``group{n}``, with ``loose1``/``loose5``) -- because different
-        models want different ones. ``avail{n}`` is always 0 in an afterstate (no
-        dice are showing yet) and exists only so the full model's layout stays fixed.
+        models want different ones.
         """
         feats: dict[str, float] = {}
 
-        available_counts = Counter(after.available_dice)  # empty in an afterstate
         kept_counts = Counter(flatten(after.kept_groups))
-        for face in range(1, 7):
-            feats[f"avail{face}"] = available_counts.get(face, 0) / 6.0
         for face in range(1, 7):
             feats[f"kept{face}"] = kept_counts.get(face, 0) / 6.0
 

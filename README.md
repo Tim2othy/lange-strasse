@@ -53,12 +53,6 @@ These are normalized counts, so each is in the range `0.0` to `1.0`.
 
 | # | Feature | Meaning |
 |---|---|---|
-| 0 | avail #1s (/6, always 0 in afterstate) | How many 1s are still available to keep before the next roll. In an afterstate this is always 0 because the next roll has not happened yet. |
-| 1 | avail #2s (/6, always 0 in afterstate) | Same for 2s. |
-| 2 | avail #3s (/6, always 0 in afterstate) | Same for 3s. |
-| 3 | avail #4s (/6, always 0 in afterstate) | Same for 4s. |
-| 4 | avail #5s (/6, always 0 in afterstate) | Same for 5s. |
-| 5 | avail #6s (/6, always 0 in afterstate) | Same for 6s. |
 | 6 | kept #1s (/6) | How many 1s are currently kept in this afterstate. |
 | 7 | kept #2s (/6) | How many 2s are kept. |
 | 8 | kept #3s (/6) | How many 3s are kept. |

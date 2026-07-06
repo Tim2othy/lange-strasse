@@ -16,10 +16,6 @@ can rescale to raw units.
 Caveats on interpreting a *linear* model:
   * Weights are correlated. Several features move together (e.g. total_turn
     score and turn_ends), so the model can split credit between them in ways
-    that make an individual weight look odd while the sum stays sensible.
-  * The six ``avail #`` features are always 0 in an afterstate (there are no
-    available dice before the next roll), so they never get a gradient and
-    stay exactly 0.0 -- dead inputs, shown only for completeness.
 """
 
 import pickle
