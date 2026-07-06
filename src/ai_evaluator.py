@@ -30,8 +30,8 @@ def best_action(state: GameState, actions: list[Action], algorithm: str) -> Acti
             score = MoveEvaluator().evaluate_action(state, action)
         elif algorithm == "dp":
             score = action_value(state, action)
-        elif algorithm == "td":
-            score = td_action_score(state, action)
+        elif algorithm in ("td", "td_full", "td_small"):
+            score = td_action_score(state, action, algorithm)
         else:
             raise ValueError(f"Unknown algorithm: {algorithm}")
         if score > best_score:
