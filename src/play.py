@@ -5,7 +5,6 @@
 - AIS_PLAY = False -> play one interactive game (you, optionally vs AI opponents).
 """
 
-import random
 import sys
 from collections import Counter
 
@@ -49,14 +48,8 @@ def _progress_bar(percent: int, width: int = 10) -> str:
     return "[" + "#" * filled + " " * (width - filled) + "]"
 
 
-def simulate(n_games, algorithms, seed=None):
-    """Play ``n_games`` all-AI games and report wins and cumulative money by algorithm.
-
-    Seat assignments are rotated each game so first-move advantage doesn't skew the
-    comparison. Pass ``seed`` for reproducible dice (identical results run to run).
-    """
-    if seed is not None:
-        random.seed(seed)
+def run_matchup(n_games, algorithms):
+    """Run rotated-seat AI games and return win/money totals."""
 
     wins = Counter()
     money = Counter()  # cumulative end-of-game money (¢) by algorithm
@@ -77,8 +70,14 @@ def simulate(n_games, algorithms, seed=None):
             next_percent += 10
 
     sys.stdout.write("\n")
+    return wins, money
 
-    print(f"\nSimulated {n_games} game(s) with {algorithms} (seats rotated).")
+
+def simulate(n_games, algorithms, seed=None):
+    """Play ``n_games`` all-AI games and report wins and cumulative money by algorithm."""
+    wins, money = run_matchup(n_games, algorithms)
+
+    print(f"\nSimulated {n_games} game(s) with {algorithms}.")
     print("Wins by algorithm:")
     for algorithm, count in wins.most_common():
         print(f"  {algorithm:8s} {count:5d}  ({count / n_games:.0%})")

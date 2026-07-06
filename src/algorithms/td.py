@@ -303,9 +303,7 @@ def train(
 
 
 def _evaluate(model, games: int = 300) -> None:
-    """Quick arena: this variant vs simple vs random, seats rotated to cancel first-move bias."""
-    from collections import Counter
-
+    """Quick arena: this variant vs simple vs random."""
     import log
     import play
 
@@ -313,14 +311,9 @@ def _evaluate(model, games: int = 300) -> None:
     play.VERBOSE = False
 
     matchup = [model, "simple", "random"]
-    wins: Counter = Counter()
-    for g in range(games):
-        seats = [matchup[(i + g) % 3] for i in range(3)]
-        game = play.run_ai_game(seats)
-        assert game.winner is not None
-        wins[seats[game.players.index(game.winner)]] += 1
+    wins, _ = play.run_matchup(games, matchup)
 
-    print(f"\nEval over {games} games (seats rotated):")
+    print(f"\nEval over {games} games:")
     for algo in matchup:
         print(f"  {algo:8s}: {wins[algo]:3d} ({wins[algo] / games:.0%})")
 
