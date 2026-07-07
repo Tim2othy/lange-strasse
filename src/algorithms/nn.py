@@ -43,36 +43,46 @@ NN_KEYS = GAME_KEYS + [
 
 WEIGHTS_PATH = Path(__file__).with_name("nn_weights.pkl")
 
-nn_features = _encode(NN_KEYS)  # (state, action) -> list[float], with bias
+nn_features = _encode(NN_KEYS)
 DIM = len(NN_KEYS) + 1  # _encode appends a constant bias input
-
+DP_IDX = NN_KEYS.index("dp_value")
 
 class MLP:
-    """One-hidden-layer tanh network with a linear scalar output, plain SGD."""
+    """One-hidden-layer tanh network with a linear scalar output, plain SGD.
+    dp_value passes straight through as a linear residual, also feeds the tanh hidden layer alongside everything else.
+    """
 
     def __init__(self, dim: int = DIM, hidden: int = HIDDEN, seed: int = 0):
         rng = np.random.default_rng(seed)
         self.W1 = rng.normal(0.0, dim**-0.5, (hidden, dim))
         self.b1 = np.zeros(hidden)
-        self.w2 = rng.normal(0.0, hidden**-0.5, hidden)
+        self.w2 = np.zeros(hidden)  # zero-init: correction contributes nothing at first
         self.b2 = 0.0
+        self.w_res = 1.0  # coefficient on dp_value -- starts as a pure pass-through
+        self.b_res = 0.0
         self.games_trained = 0  # cumulative self-play games behind these weights
 
     def value(self, features: list[float]) -> float:
         x = np.asarray(features)
-        return float(self.w2 @ np.tanh(self.W1 @ x + self.b1) + self.b2)
+        h = np.tanh(self.W1 @ x + self.b1)
+        return float(self.w_res * x[DP_IDX] + self.b_res + self.w2 @ h + self.b2)
 
     def values(self, feature_rows: list[list[float]]) -> np.ndarray:
         """Values of many feature vectors at once (one action per row)."""
         X = np.asarray(feature_rows)
-        return np.tanh(X @ self.W1.T + self.b1) @ self.w2 + self.b2
+        H = np.tanh(X @ self.W1.T + self.b1)
+        return self.w_res * X[:, DP_IDX] + self.b_res + H @ self.w2 + self.b2
 
     def update(self, features: list[float], target: float, alpha: float) -> float:
         """One SGD step of all weights toward `target`; returns the TD error."""
         x = np.asarray(features)
         h = np.tanh(self.W1 @ x + self.b1)
-        err = target - float(self.w2 @ h + self.b2)
+        err = target - float(
+            self.w_res * x[DP_IDX] + self.b_res + self.w2 @ h + self.b2
+        )
         dh = err * self.w2 * (1.0 - h * h)
+        self.w_res += alpha * err * x[DP_IDX]
+        self.b_res += alpha * err
         self.w2 += alpha * err * h
         self.b2 += alpha * err
         self.W1 += alpha * np.outer(dh, x)
@@ -90,6 +100,8 @@ class MLP:
                     "b1": self.b1,
                     "w2": self.w2,
                     "b2": self.b2,
+                    "w_res": self.w_res,
+                    "b_res": self.b_res,
                 },
                 f,
             )
@@ -105,6 +117,8 @@ class MLP:
                     model = cls(hidden=data["hidden"])
                     model.W1, model.b1 = data["W1"], data["b1"]
                     model.w2, model.b2 = data["w2"], data["b2"]
+                    model.w_res = data.get("w_res", 1.0)
+                    model.b_res = data.get("b_res", 0.0)
                     model.games_trained = data.get("games", 0)
                     return model
             except (pickle.UnpicklingError, EOFError, OSError, KeyError):
