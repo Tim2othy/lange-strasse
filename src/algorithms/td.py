@@ -83,12 +83,12 @@ _TD_SMALL_KEYS = [
 
     "turn_accumulated",
     "roll_count",
+    
+    "seat_offset",
 
     "score_me", "strich_me", "money_me",
     "score_p2", "strich_p2", "money_p2",
     "score_p3", "strich_p3", "money_p3",
-
-    "seat_offset",
 
     "turn_number",
     "is_final_round",

@@ -150,12 +150,9 @@ class StateExtractor:
         """
         feats: dict[str, float] = {}
 
-        kept_counts = Counter(flatten(after.kept_groups))
-        for face in range(1, 7):
-            feats[f"kept{face}"] = kept_counts.get(face, 0) / 6.0
+        # --- --- --- Core Game Features --- --- ---
 
-        # merge_kept keeps at most one triplet group per face and stores loose
-        # 1s/5s as separate length-1 groups, so triplet_size[face] is well-defined.
+        # --- Groups and loose dice ---
         triplet_size = {face: 0 for face in range(1, 7)}
         loose = {1: 0, 5: 0}
         for group in after.kept_groups:
@@ -168,30 +165,17 @@ class StateExtractor:
             feats[f"group{face}"] = 2 ** (size - 3) / 8.0 if size >= 3 else 0.0
         feats["loose1"] = loose[1] / 6.0
         feats["loose5"] = loose[5] / 6.0
-        feats["grouped1"] = triplet_size[1] / 6.0  # 1s sitting inside a triplet
-        feats["grouped5"] = triplet_size[5] / 6.0  # 5s sitting inside a triplet
 
-        # Turn flow (raw + derived scores).
-        feats["current_set_score"] = after.current_set_score / 2000.0
+        # --- Turn-based features ---
         feats["turn_accumulated"] = after.turn_accumulated_score / 10000.0
-        feats["total_turn_score"] = after.total_turn_score / 10000.0
         feats["roll_count"] = after.roll_count / 6.0
-        feats["dice_left"] = (6 - sum(kept_counts.values())) / 6.0
 
-        # Situation flags (derived).
-        feats["flag_lange_strasse"] = 1.0 if after.can_complete_lange_strasse else 0.0
-        feats["flag_talheim"] = 1.0 if after.can_complete_talheim else 0.0
-        feats["flag_keep_any"] = 1.0 if after.can_keep_any else 0.0
-
-        # Position in the round / game.
+        # --- Seating Position ---
         n = len(after.players)
         offset = (after.current_player_idx - after.starting_player_idx) % n
         feats["seat_offset"] = offset / (n - 1) if n > 1 else 0.0
-        feats["turn_number"] = after.turn_number / 20.0
-        feats["is_final_round"] = 1.0 if after.is_final_round else 0.0
-        feats["ends_turn"] = 1.0 if ends_turn else 0.0
 
-        # Players, acting player first.
+        # --- Player features ---
         labels = ["me", "p2", "p3"]
         for i in range(n):
             p = after.players[(after.current_player_idx + i) % n]
@@ -199,6 +183,32 @@ class StateExtractor:
             feats[f"score_{label}"] = p.total_score / 10000.0
             feats[f"strich_{label}"] = 1.0 if p.has_strich else 0.0
             feats[f"money_{label}"] = p.money / 1000.0
+
+        # --- Game context features ---
+        feats["turn_number"] = after.turn_number / 20.0
+        feats["is_final_round"] = 1.0 if after.is_final_round else 0.0
+
+        # --- Ends Turn Feature ---
+        feats["ends_turn"] = 1.0 if ends_turn else 0.0
+
+        # --- --- --- Derived Features --- --- ---
+
+        kept_counts = Counter(flatten(after.kept_groups))
+        for face in range(1, 7):
+            feats[f"kept{face}"] = kept_counts.get(face, 0) / 6.0
+
+        feats["grouped1"] = triplet_size[1] / 6.0  # 1s sitting inside a triplet
+        feats["grouped5"] = triplet_size[5] / 6.0  # 5s sitting inside a triplet
+
+        # Turn flow (raw + derived scores).
+        feats["current_set_score"] = after.current_set_score / 2000.0
+        feats["total_turn_score"] = after.total_turn_score / 10000.0
+        feats["dice_left"] = (6 - sum(kept_counts.values())) / 6.0
+
+        # Situation flags (derived).
+        feats["flag_lange_strasse"] = 1.0 if after.can_complete_lange_strasse else 0.0
+        feats["flag_talheim"] = 1.0 if after.can_complete_talheim else 0.0
+        feats["flag_keep_any"] = 1.0 if after.can_keep_any else 0.0
 
         return feats
 
