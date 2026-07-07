@@ -303,7 +303,6 @@ def _evaluate(model, games: int = 300) -> None:
     import play
 
     log.VERBOSE = False
-    play.VERBOSE = False
 
     matchup = [model, "simple", "random"]
     wins, _ = play.run_matchup(games, matchup)

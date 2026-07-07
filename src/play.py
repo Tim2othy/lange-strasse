@@ -5,7 +5,6 @@
 - AIS_PLAY = False -> play one interactive game (you, optionally vs AI opponents).
 """
 
-import random
 import sys
 from collections import Counter
 
@@ -92,7 +91,7 @@ def simulate(n_games, algorithms, seed=None):
 # --------------------------------------------------------------------------- #
 # Interactive play
 # --------------------------------------------------------------------------- #
-def choose_players(algorithms) -> list[Player]:
+def choose_players(algorithms) -> list[Player] | list[AIPlayer]:
     """Ask the human which human/AI mix to play and build the seats."""
     print("Choose game mode:")
     print("1. Human vs Human vs Human")

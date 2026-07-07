@@ -7,7 +7,6 @@ answered by game.rules; this module only holds state and turn/money flow.
 import random
 from collections import Counter
 
-from game import rules
 from game.rules import (
     NUM_DICE,
     STOP_MIN,
@@ -15,6 +14,7 @@ from game.rules import (
     flatten,
     is_lange_strasse,
     is_valid_keep,
+    legal_actions,
     merge_kept,
     score_groups,
     talheim_score,
@@ -251,7 +251,7 @@ class Game:
         """All legal keep/stop actions at the current decision point."""
         if self.game_over or self.dice_set.turn_over:
             return []
-        return rules.legal_actions(self.dice_set.available, self.dice_set.kept_groups)
+        return legal_actions(self.dice_set.available, self.dice_set.kept_groups)
 
     def apply_action(self, action):
         """Apply one keep/stop decision for the current player.
