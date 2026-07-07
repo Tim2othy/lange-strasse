@@ -69,7 +69,7 @@ def _pretty_name(key: str) -> str:
         "group6": "kept triplet size for #6s",
         "loose1": "loose #1s  (/6)",
         "loose5": "loose #5s  (/6)",
-        "seat_offset": "seat offset from starter  (/n-1)",
+        # use one hot here
     }.get(key, key)
 
 

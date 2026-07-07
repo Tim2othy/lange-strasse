@@ -173,7 +173,6 @@ class StateExtractor:
         # --- Seating Position ---
         n = len(after.players)
         offset = (after.current_player_idx - after.starting_player_idx) % n
-        feats["seat_offset"] = offset / (n - 1) if n > 1 else 0.0
         for k in range(n):  # one-hot: seat order is categorical, not ordinal value
             feats[f"seat{k}"] = 1.0 if offset == k else 0.0
 

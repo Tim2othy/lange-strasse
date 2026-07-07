@@ -71,7 +71,7 @@ The GameState class and it's minimal feature representation:
    becomes
 
    ``` 
-      "seat_offset",
+      "seat0", "seat1", "seat2",
    ```
    starting player and own player id is formatted into one, loses no information
 
