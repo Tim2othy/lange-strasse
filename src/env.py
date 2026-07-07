@@ -68,6 +68,7 @@ class LangeStrasseEnv:
         info = {"actor": actor, "result": result}
         if self.done:
             info["standings"] = self.standings()
+            info["final_turn_number"] = self.game.turn_number  # round-10 bonus label
             return None, reward, True, info
         return self.observe(), reward, False, info
 
@@ -78,6 +79,7 @@ class LangeStrasseEnv:
                 "name": p.name,
                 "score": p.total_score,
                 "money": p.money,
+                "has_strich": p.has_strich,
                 "is_winner": p is self.game.winner,
             }
             for p in self.game.players

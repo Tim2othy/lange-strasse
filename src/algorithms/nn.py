@@ -1,19 +1,31 @@
-"""Small MLP value function over afterstates, learned by TD(0) self-play.
+"""Multi-head MLP over afterstates: payout-event probabilities -> expected money.
 
-Same afterstate setup as the linear models in td.py, but two differences. The
-value function is a one-hidden-layer neural network, so it can represent the
-nonlinear interactions a linear model provably cannot (e.g. "opponent already
-crossed 10K AND this is my last turn -> never stop short of the lead"). And
-V(afterstate) is the acting player's expected FUTURE money -- the reward at
-each of a player's decisions is the money gained/lost since their previous
-one, not a terminal-only final total. Money already exchanged is sunk (fixed
-payouts never depend on the balance), so this keeps the players' balances --
-the one unbounded quantity in the state -- out of the inputs entirely.
+Instead of one output regressing the noisy money total, the net predicts the
+probabilities of the payout events themselves -- my final placement, win by
+round 10, no strich, under 5000 -- and expected money is assembled from them
+analytically with the payout table (exact game knowledge, nothing learned).
+Each head is a dense, low-variance target: every game labels every one of
+them. The in-game money flows (Strasse, Totale, Super Strasse) are the one
+part that stays a regression, as a separate "flow" head.
 
-The encoding is the full lossless state plus the money-rule atoms (each mirrors
-one way money changes hands; see game_state._atom_features) plus the DP
-solver's turn-value, so the net learns a *correction* to DP rather than dice
-combinatorics from scratch.
+Money is zero-sum and every payout event moves a FIXED amount, so the acting
+player's expected money is *linear* in these event probabilities -- the
+analytic combination is exact, not an approximation. Two consequences shape
+the head list: my own placement alone fixes my share of the basic stakes
+(1st collects 50+70, 2nd pays 50, 3rd pays 70), so no opponent-placement
+heads are needed; and the only correlated events whose product matters are
+"I win AND an opponent is under 5000", which get their own joint heads.
+
+The DP solver's turn-value enters twice: as an input feature, and as a linear
+residual (``w_res * dp_value``) on the final value. The head layer starts at
+zero, so every head is initially constant across actions and the net ranks
+actions exactly like the "dp" algorithm. The residual is trained against the
+TOTAL money error, so as the heads learn to explain the money themselves,
+``w_res`` anneals toward zero on its own.
+
+Training is Monte Carlo self-play: every decision of a game is labeled with
+that game's final events (cross-entropy) and the realized future in-game
+money (squared error).
 
 Train with:  python -m algorithms.nn [n_games] [alpha] [epsilon]
 """
@@ -42,63 +54,145 @@ NN_KEYS = GAME_KEYS + [
 # fmt: on
 
 WEIGHTS_PATH = Path(__file__).with_name("nn_weights.pkl")
+ARCH = "multihead-v1"  # bumped whenever the head layout changes
 
 nn_features = _encode(NN_KEYS)
 DIM = len(NN_KEYS) + 1  # _encode appends a constant bias input
 DP_IDX = NN_KEYS.index("dp_value")
 
+# --- Head layout: 12 probability outputs + 1 regression output. ------------- #
+# All from the acting player's perspective (me / p2 / p3 as in the features).
+# The order is load-bearing: PAYOUT below is aligned with it.
+HEAD_NAMES = [
+    "place1",
+    "place2",
+    "place3",  # softmax: my final placement
+    "by10_me",
+    "by10_p2",
+    "by10_p3",  # sigmoid: X wins by round 10
+    "nostrich_me",
+    "nostrich_p2",
+    "nostrich_p3",  # sigmoid: X ends without strich
+    "below5k_me",  # sigmoid: I end under 5000
+    "iwin_p2_below",
+    "iwin_p3_below",  # sigmoid: I win AND opp under 5000
+    "flow",  # linear: my future in-game money
+]
+N_PROB = 12
+FLOW_IDX = 12
+N_OUT = 13
+
+# Expected-money weight of each probability head, in MONEY_SCALE units
+# (cents / 100). Mirrors Game.finish_game exactly. Zero-sum is baked in:
+# each coefficient is MY side of one fixed transfer.
+# fmt: off
+PAYOUT = np.array([
+    1.2, -0.5, -0.7,    # 1st collects 50 + 70; 2nd pays 50; 3rd pays 70
+    1.0, -0.5, -0.5,    # round-10 winner collects 50 from each other player
+    1.0, -0.5, -0.5,    # a no-strich player collects 50 from each other player
+    -0.5,               # under 5000 at the end -> I pay the winner 50
+    0.5, 0.5,           # I'm the winner: collect 50 per under-5000 opponent
+])
+# fmt: on
+
+
 class MLP:
-    """One-hidden-layer tanh network with a linear scalar output, plain SGD.
-    dp_value passes straight through as a linear residual, also feeds the tanh hidden layer alongside everything else.
+    """Shared tanh hidden layer feeding the event heads (softmax placement,
+    sigmoid event flags, linear flow) plus a ``w_res * dp_value`` residual.
+    The head layer (W2, b2) is zero-initialized, so at first every head is
+    constant across actions and ranking falls back to pure DP; the residual's
+    weights train against the total money error and fade as the heads take
+    over. Plain SGD throughout.
     """
 
     def __init__(self, dim: int = DIM, hidden: int = HIDDEN, seed: int = 0):
         rng = np.random.default_rng(seed)
         self.W1 = rng.normal(0.0, dim**-0.5, (hidden, dim))
         self.b1 = np.zeros(hidden)
-        self.w2 = np.zeros(hidden)  # zero-init: correction contributes nothing at first
-        self.b2 = 0.0
+        self.w2 = np.zeros((N_OUT, hidden))
+        self.b2 = np.zeros(N_OUT)
         self.w_res = 1.0  # coefficient on dp_value -- starts as a pure pass-through
         self.b_res = 0.0
         self.games_trained = 0  # cumulative self-play games behind these weights
 
+    def _forward(self, x: np.ndarray):
+        """-> (hidden activations, raw head outputs, head probabilities)."""
+        h = np.tanh(self.W1 @ x + self.b1)
+        z = self.w2 @ h + self.b2
+        p = np.empty(N_PROB)
+        e = np.exp(z[:3] - z[:3].max())
+        p[:3] = e / e.sum()  # softmax over my placement
+        p[3:] = 1.0 / (1.0 + np.exp(-z[3:N_PROB]))  # sigmoid event flags
+        return h, z, p
+
     def value(self, features: list[float]) -> float:
         x = np.asarray(features)
-        h = np.tanh(self.W1 @ x + self.b1)
-        return float(self.w_res * x[DP_IDX] + self.b_res + self.w2 @ h + self.b2)
+        _h, z, p = self._forward(x)
+        return float(self.w_res * x[DP_IDX] + self.b_res + PAYOUT @ p + z[FLOW_IDX])
 
     def values(self, feature_rows: list[list[float]]) -> np.ndarray:
         """Values of many feature vectors at once (one action per row)."""
         X = np.asarray(feature_rows)
         H = np.tanh(X @ self.W1.T + self.b1)
-        return self.w_res * X[:, DP_IDX] + self.b_res + H @ self.w2 + self.b2
+        Z = H @ self.w2.T + self.b2
+        P = np.empty((X.shape[0], N_PROB))
+        E = np.exp(Z[:, :3] - Z[:, :3].max(axis=1, keepdims=True))
+        P[:, :3] = E / E.sum(axis=1, keepdims=True)
+        P[:, 3:] = 1.0 / (1.0 + np.exp(-Z[:, 3:N_PROB]))
+        return self.w_res * X[:, DP_IDX] + self.b_res + P @ PAYOUT + Z[:, FLOW_IDX]
 
-    def update(self, features: list[float], target: float, alpha: float) -> float:
-        """One SGD step of all weights toward `target`; returns the TD error."""
+    def head_probs(self, features: list[float]) -> dict[str, float]:
+        """Named head outputs for one afterstate (probabilities + flow)."""
         x = np.asarray(features)
-        h = np.tanh(self.W1 @ x + self.b1)
-        err = target - float(
-            self.w_res * x[DP_IDX] + self.b_res + self.w2 @ h + self.b2
-        )
-        dh = err * self.w2 * (1.0 - h * h)
-        self.w_res += alpha * err * x[DP_IDX]
-        self.b_res += alpha * err
-        self.w2 += alpha * err * h
+        _h, z, p = self._forward(x)
+        return dict(zip(HEAD_NAMES, [*p, z[FLOW_IDX]]))
+
+    def update(
+        self,
+        features: list[float],
+        y_probs: np.ndarray,
+        y_flow: float,
+        y_total: float,
+        alpha: float,
+    ) -> float:
+        """One SGD step: probability heads toward their event labels (cross-
+        entropy), the flow head toward the realized in-game money (squared
+        error), and the DP residual toward the total money error. Returns the
+        total-value error."""
+        x = np.asarray(features)
+        h, z, p = self._forward(x)
+        value = float(self.w_res * x[DP_IDX] + self.b_res + PAYOUT @ p + z[FLOW_IDX])
+
+        # d(-loss)/dz is "target - prediction" for every head: softmax and
+        # sigmoid cross-entropy and linear squared error all share that form.
+        err = np.empty(N_OUT)
+        err[:N_PROB] = y_probs - p
+        err[FLOW_IDX] = y_flow - z[FLOW_IDX]
+
+        dh = (self.w2.T @ err) * (1.0 - h * h)  # taken before W2 moves
+        self.w2 += alpha * np.outer(err, h)
         self.b2 += alpha * err
         self.W1 += alpha * np.outer(dh, x)
         self.b1 += alpha * dh
-        return err
+
+        # The DP prior explains whatever money the heads don't (yet); as they
+        # learn, this error turns against the prior and anneals it away.
+        err_total = y_total - value
+        self.w_res += alpha * err_total * x[DP_IDX]
+        self.b_res += alpha * err_total
+        return err_total
 
     def save(self, path: Path = WEIGHTS_PATH) -> None:
         with open(path, "wb") as f:
             pickle.dump(
                 {
                     "keys": NN_KEYS,
+                    "arch": ARCH,
                     "hidden": len(self.b1),
                     "games": self.games_trained,
                     "W1": self.W1,
                     "b1": self.b1,
-                    "w2": self.w2,
+                    "W2": self.w2,
                     "b2": self.b2,
                     "w_res": self.w_res,
                     "b_res": self.b_res,
@@ -108,17 +202,17 @@ class MLP:
 
     @classmethod
     def load(cls, path: Path = WEIGHTS_PATH) -> "MLP":
-        """Load weights if present and encoded with the same keys, else fresh."""
+        """Load weights if present and same keys + head layout, else fresh."""
         if path.exists():
             try:
                 with open(path, "rb") as f:
                     data = pickle.load(f)
-                if data.get("keys") == NN_KEYS:
+                if data.get("keys") == NN_KEYS and data.get("arch") == ARCH:
                     model = cls(hidden=data["hidden"])
                     model.W1, model.b1 = data["W1"], data["b1"]
-                    model.w2, model.b2 = data["w2"], data["b2"]
-                    model.w_res = data.get("w_res", 1.0)
-                    model.b_res = data.get("b_res", 0.0)
+                    model.w2, model.b2 = data["W2"], data["b2"]
+                    model.w_res = data["w_res"]
+                    model.b_res = data["b_res"]
                     model.games_trained = data.get("games", 0)
                     return model
             except (pickle.UnpicklingError, EOFError, OSError, KeyError):
@@ -154,6 +248,60 @@ def nn_action_score(state: GameState, action) -> float:
     return _model().value(nn_features(state, action))
 
 
+def nn_head_report(state: GameState, action) -> dict[str, float]:
+    """Debug view: every head's prediction for one action's afterstate."""
+    return _model().head_probs(nn_features(state, action))
+
+
+# --- game-end labels --------------------------------------------------------- #
+def _final_settlement(
+    scores: list[int], has_strich: list[bool], turn_number: int
+) -> list[int]:
+    """End-of-game transfers per seat, in cents -- mirrors Game.finish_game
+    (including its tie-breaking: stable sort by score, seat order on ties)."""
+    n = len(scores)
+    ranked = sorted(range(n), key=lambda i: scores[i], reverse=True)
+    winner = ranked[0]
+    settle = [0] * n
+    settle[ranked[0]] += 120  # collects 50 from 2nd and 70 from 3rd
+    settle[ranked[1]] -= 50
+    settle[ranked[2]] -= 70
+    if turn_number <= 10:
+        for i in range(n):
+            settle[i] += 100 if i == winner else -50
+    for j in range(n):
+        if not has_strich[j]:
+            for i in range(n):
+                settle[i] += 100 if i == j else -50
+    for j in range(n):
+        if j != winner and scores[j] < 5000:
+            settle[j] -= 50
+            settle[winner] += 50
+    return settle
+
+
+def _event_targets(
+    seat: int, scores: list[int], has_strich: list[bool], turn_number: int
+) -> np.ndarray:
+    """Cross-entropy targets for `seat`'s probability heads, in that seat's
+    me/p2/p3 perspective (matching the feature encoding)."""
+    n = len(scores)
+    ranked = sorted(range(n), key=lambda i: scores[i], reverse=True)
+    winner = ranked[0]
+    by10 = turn_number <= 10
+    order = [(seat + i) % n for i in range(n)]  # me, p2, p3 as absolute seats
+
+    y = np.zeros(N_PROB)
+    y[ranked.index(seat)] = 1.0  # one-hot own placement
+    for k, s in enumerate(order):
+        y[3 + k] = 1.0 if (by10 and s == winner) else 0.0
+        y[6 + k] = 0.0 if has_strich[s] else 1.0
+    y[9] = 1.0 if scores[seat] < 5000 else 0.0
+    y[10] = 1.0 if (seat == winner and scores[order[1]] < 5000) else 0.0
+    y[11] = 1.0 if (seat == winner and scores[order[2]] < 5000) else 0.0
+    return y
+
+
 # --- training --------------------------------------------------------------- #
 def train(
     alpha: float,
@@ -162,7 +310,9 @@ def train(
     seed: "int | None" = None,
     log_every: int = 500,
 ) -> MLP:
-    """Self-play TD(0) for the MLP. Continues from saved weights; saves at end."""
+    """Monte Carlo self-play: play a game epsilon-greedily, then label every
+    decision with the game's final events and realized future in-game money.
+    Continues from saved weights; saves at end."""
     import random
 
     import log
@@ -176,8 +326,8 @@ def train(
 
     for game_i in range(1, n_games + 1):
         env = LangeStrasseEnv()
-        last_features: dict[int, list[float]] = {}  # player -> its last chosen afterstate
-        last_money: dict[int, int] = {}  # player -> its balance at that decision
+        # seat -> [(chosen afterstate features, balance at that decision), ...]
+        history: dict[int, list[tuple[list[float], int]]] = {}
         info = {}
 
         while not env.done:
@@ -191,23 +341,25 @@ def train(
                 choice = random.randrange(len(actions))
             else:
                 choice = int(np.argmax(model.values(feats)))
-            chosen = feats[choice]
-
-            # Bootstrap: this player's previous afterstate -> money that arrived
-            # since then + value of the new one.
-            if player in last_features:
-                reward = (money_now - last_money[player]) / MONEY_SCALE
-                model.update(last_features[player], reward + model.value(chosen), alpha)
-            last_features[player] = chosen
-            last_money[player] = money_now
+            history.setdefault(player, []).append((feats[choice], money_now))
 
             _obs, _reward, _done, info = env.step(actions[choice])
 
-        # Terminal: pull each player's last afterstate toward the money that was
-        # still to come after it.
-        for player, feats in last_features.items():
-            final = info["standings"][player]["money"]
-            model.update(feats, (final - last_money[player]) / MONEY_SCALE, alpha)
+        standings = info["standings"]
+        turn_number = info["final_turn_number"]
+        scores = [s["score"] for s in standings]
+        has_strich = [s["has_strich"] for s in standings]
+        settle = _final_settlement(scores, has_strich, turn_number)
+        assert sum(settle) == 0, "settlement must be zero-sum"
+
+        for seat, decisions in history.items():
+            y_probs = _event_targets(seat, scores, has_strich, turn_number)
+            final = standings[seat]["money"]
+            for feats_row, money_then in decisions:
+                # in-game flow still to come = total still to come - settlement
+                y_flow = (final - settle[seat] - money_then) / MONEY_SCALE
+                y_total = (final - money_then) / MONEY_SCALE
+                model.update(feats_row, y_probs, y_flow, y_total, alpha)
 
         if log_every and game_i % log_every == 0:
             print(f"  ...{game_i}/{n_games} games")
