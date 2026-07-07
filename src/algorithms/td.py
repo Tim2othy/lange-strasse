@@ -88,12 +88,12 @@ GAME_KEYS = [
     "seat0", "seat1", "seat2",
 
     # players, mover first
-    "score_me", "strich_me", "money_me",
-    "score_p2", "strich_p2", "money_p2",
-    "score_p3", "strich_p3", "money_p3",
+    "score_me", "strich_me", 
+    "score_p2", "strich_p2", 
+    "score_p3", "strich_p3", 
 
     # game context
-    "turn_number", "is_final_round",
+    "turns_to_bonus", "is_final_round",
 
     "ends_turn",
 ]

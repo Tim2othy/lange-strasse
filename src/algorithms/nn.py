@@ -1,11 +1,14 @@
 """Small MLP value function over afterstates, learned by TD(0) self-play.
 
-Same setup as the linear models in td.py -- V(afterstate) = the acting player's
-expected FINAL MONEY, terminal-only reward, TD(0) bootstrap between a player's
-consecutive afterstates -- but the value function is a one-hidden-layer neural
-network, so it can represent the nonlinear interactions a linear model provably
-cannot (e.g. "opponent already crossed 10K AND this is my last turn -> never
-stop short of the lead").
+Same afterstate setup as the linear models in td.py, but two differences. The
+value function is a one-hidden-layer neural network, so it can represent the
+nonlinear interactions a linear model provably cannot (e.g. "opponent already
+crossed 10K AND this is my last turn -> never stop short of the lead"). And
+V(afterstate) is the acting player's expected FUTURE money -- the reward at
+each of a player's decisions is the money gained/lost since their previous
+one, not a terminal-only final total. Money already exchanged is sunk (fixed
+payouts never depend on the balance), so this keeps the players' balances --
+the one unbounded quantity in the state -- out of the inputs entirely.
 
 The encoding is the full lossless state plus the money-rule atoms (each mirrors
 one way money changes hands; see game_state._atom_features) plus the DP
@@ -160,11 +163,13 @@ def train(
     for game_i in range(1, n_games + 1):
         env = LangeStrasseEnv()
         last_features: dict[int, list[float]] = {}  # player -> its last chosen afterstate
+        last_money: dict[int, int] = {}  # player -> its balance at that decision
         info = {}
 
         while not env.done:
             state = env.observe()
             player = env.current_player_idx
+            money_now = state.players[player].money
             actions = env.legal_actions()
             feats = [nn_features(state, a) for a in actions]
 
@@ -174,17 +179,21 @@ def train(
                 choice = int(np.argmax(model.values(feats)))
             chosen = feats[choice]
 
-            # Bootstrap: this player's previous afterstate -> value of the new one.
+            # Bootstrap: this player's previous afterstate -> money that arrived
+            # since then + value of the new one.
             if player in last_features:
-                model.update(last_features[player], model.value(chosen), alpha)
+                reward = (money_now - last_money[player]) / MONEY_SCALE
+                model.update(last_features[player], reward + model.value(chosen), alpha)
             last_features[player] = chosen
+            last_money[player] = money_now
 
             _obs, _reward, _done, info = env.step(actions[choice])
 
-        # Terminal: pull each player's last afterstate toward its final money.
+        # Terminal: pull each player's last afterstate toward the money that was
+        # still to come after it.
         for player, feats in last_features.items():
-            target = info["standings"][player]["money"] / MONEY_SCALE
-            model.update(feats, target, alpha)
+            final = info["standings"][player]["money"]
+            model.update(feats, (final - last_money[player]) / MONEY_SCALE, alpha)
 
         if log_every and game_i % log_every == 0:
             print(f"  ...{game_i}/{n_games} games")

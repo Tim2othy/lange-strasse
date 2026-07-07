@@ -186,7 +186,7 @@ class StateExtractor:
             feats[f"money_{label}"] = p.money / 1000.0
 
         # --- Game context features ---
-        feats["turn_number"] = after.turn_number / 20.0
+        feats["turns_to_bonus"] = max(0, 10 - after.turn_number) / 10.0
         feats["is_final_round"] = 1.0 if after.is_final_round else 0.0
 
         # --- Ends Turn Feature ---
