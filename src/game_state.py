@@ -194,29 +194,11 @@ class StateExtractor:
 
         # --- --- --- Derived Features --- --- ---
 
-        kept_counts = Counter(flatten(after.kept_groups))
-        for face in range(1, 7):
-            feats[f"kept{face}"] = kept_counts.get(face, 0) / 6.0
-
-        feats["grouped1"] = triplet_size[1] / 6.0  # 1s sitting inside a triplet
-        feats["grouped5"] = triplet_size[5] / 6.0  # 5s sitting inside a triplet
-
-        # Turn flow (raw + derived scores).
-        feats["current_set_score"] = after.current_set_score / 2000.0
-        feats["total_turn_score"] = after.total_turn_score / 10000.0
-        feats["dice_left"] = (6 - sum(kept_counts.values())) / 6.0
-
-        # Situation flags (derived).
-        feats["flag_lange_strasse"] = 1.0 if after.can_complete_lange_strasse else 0.0
-        feats["flag_talheim"] = 1.0 if after.can_complete_talheim else 0.0
-        feats["flag_keep_any"] = 1.0 if after.can_keep_any else 0.0
-
         # --- Money-rule features: each mirrors one way money changes hands ---
         # Prospective score: the mover's total if the turn ended right now
         # (already banked when the turn ended, else banked + points at risk).
         prospective = (
-            after.players[after.current_player_idx].total_score
-            + after.total_turn_score
+            after.players[after.current_player_idx].total_score + after.total_turn_score
         )
         opponents = [
             after.players[(after.current_player_idx + i) % n] for i in range(1, n)
@@ -249,10 +231,26 @@ class StateExtractor:
 
         # Completing the strasse on the next roll would be the 3rd+ roll: Super.
         feats["flag_super_strasse"] = (
-            1.0
-            if after.can_complete_lange_strasse and after.roll_count >= 2
-            else 0.0
+            1.0 if after.can_complete_lange_strasse and after.roll_count >= 2 else 0.0
         )
+
+        # --- Older Hand crafted features ---
+        kept_counts = Counter(flatten(after.kept_groups))
+        for face in range(1, 7):
+            feats[f"kept{face}"] = kept_counts.get(face, 0) / 6.0
+
+        feats["grouped1"] = triplet_size[1] / 6.0  # 1s sitting inside a triplet
+        feats["grouped5"] = triplet_size[5] / 6.0  # 5s sitting inside a triplet
+
+        # Turn flow (raw + derived scores).
+        feats["current_set_score"] = after.current_set_score / 2000.0
+        feats["total_turn_score"] = after.total_turn_score / 10000.0
+        feats["dice_left"] = (6 - sum(kept_counts.values())) / 6.0
+
+        # Situation flags (derived).
+        feats["flag_lange_strasse"] = 1.0 if after.can_complete_lange_strasse else 0.0
+        feats["flag_talheim"] = 1.0 if after.can_complete_talheim else 0.0
+        feats["flag_keep_any"] = 1.0 if after.can_keep_any else 0.0
 
         return feats
 
