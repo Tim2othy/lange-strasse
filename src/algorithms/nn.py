@@ -20,27 +20,13 @@ from pathlib import Path
 
 import numpy as np
 
-from algorithms.td import MONEY_SCALE, _encode
+from algorithms.td import GAME_KEYS, MONEY_SCALE, _encode
 from game_state import GameState
 
 HIDDEN = 64
 
 # fmt: off
-NN_KEYS = [
-    # dice: triplet strength + loose 1s/5s (lossless given the group encoding)
-    "group1", "group2", "group3", "group4", "group5", "group6",
-    "loose1", "loose5",
-    # turn flow
-    "turn_accumulated", "roll_count",
-    # seating (one-hot: categorical, and "last seat" is strategically special)
-    "seat0", "seat1", "seat2",
-    # players, mover first
-    "score_me", "strich_me", "money_me",
-    "score_p2", "strich_p2", "money_p2",
-    "score_p3", "strich_p3", "money_p3",
-    # game context
-    "turn_number", "is_final_round",
-    "ends_turn",
+NN_KEYS = GAME_KEYS + [
     # money-rule atoms: one per way money changes hands
     "prospective_score", "points_to_win", "crosses_10k",
     "score_best_opp", "is_leading", "gap_p2", "gap_p3",
