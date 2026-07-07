@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from algorithms.dp import action_value as dp_action_value
 from algorithms.heuristic import MoveEvaluator
+from algorithms.nn import NN_ALGORITHMS, nn_action_score
 from algorithms.td import TD_ALGORITHMS, td_action_score
 from game.game import Player
 from game.rules import Action
@@ -43,4 +44,6 @@ class AIPlayer(Player):
             return dp_action_value(state, action)
         if self.ai_type in TD_ALGORITHMS:
             return td_action_score(state, action, self.ai_type)
+        if self.ai_type in NN_ALGORITHMS:
+            return nn_action_score(state, action)
         raise ValueError(f"Unknown AI type: {self.ai_type}")
