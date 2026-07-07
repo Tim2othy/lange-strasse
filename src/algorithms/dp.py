@@ -50,12 +50,11 @@ T_MAX = 4000  # at/above this we assume optimal play banks (keeps the DAG finite
 # changed) means the file is ignored and rebuilt rather than silently trusted.
 _CACHE: dict[tuple, float] = {}
 _CACHE_PATH = Path(__file__).with_name("turn_value_cache.pkl")
-_CACHE_VERSION = 1  # bump when a scoring-rule change affects the computed values
 _ready = False
 
 
 def _header() -> tuple:
-    return (_CACHE_VERSION, NUM_DICE, STOP_MIN, T_MAX)
+    return (NUM_DICE, STOP_MIN, T_MAX)
 
 
 @lru_cache(maxsize=None)

@@ -83,7 +83,6 @@ _TD_SMALL_KEYS = _TD_MIN_KEYS + [
     "strich_me",
     "score_p2", "strich_p2", "money_p2",
     "score_p3", "strich_p3", "money_p3",
-    
 ]
 _TD_DP_KEYS = ["dp_value"]
 # fmt: on
