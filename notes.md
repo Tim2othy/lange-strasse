@@ -11,6 +11,16 @@ But inter turn dynamics make it more complex
 1. if one is behind how much riskier should one play
 2. we get money from special events, straße, totale, winning quickly etc. harder to estimate how important these are
 
+## What the Model should Learn
+
+1. If a player is close to winning or has already crossed 10K play more riskily. (for humans it's simple to understand that If someone else has won and I get one more turn I play forever until I've passed them (modulo some risk from getting totale (the only way playing can actually lose you money), normally of course once one has 3000 points one would always stop, but if it's the last turn, you just keep playing for that tiny chance to overtake the leader.) 
+2. ALso take into account seating position. Will you have one more turn after other player crosses 10K or not.
+3. Lange strasse
+4. Super Strasse
+5.  totale
+6.  If you win by the 10th round you get 50ct from each player, so keep track of this, possibly play more riskily if not 10th round yet
+7. If the game ends and you have no "strich" you get 50ct from each player (even if you didn't win), so keep track and play more carefully if you have no strich, especially if game almost over
+8. If someone wins and you don't have 5000 points yet you must give the winner 50ct. so if below 5000 points, play differently, and if you close to winning and someone below 5000 points also take into consideration
 
 ## Features
 
