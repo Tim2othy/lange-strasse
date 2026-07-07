@@ -25,65 +25,22 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from algorithms.td import VARIANTS
+import algorithms.td as td
 from config import TD_INTERP
 
 
-def _pretty_name(key: str) -> str:
-    return {
-        "kept1": "kept #1s  (/6)",
-        "kept2": "kept #2s  (/6)",
-        "kept3": "kept #3s  (/6)",
-        "kept4": "kept #4s  (/6)",
-        "kept5": "kept #5s  (/6)",
-        "kept6": "kept #6s  (/6)",
-        "grouped1": "kept 1s inside a triplet  (/6)",
-        "grouped5": "kept 5s inside a triplet  (/6)",
-        "current_set_score": "current-set score  (/2000)",
-        "turn_accumulated": "turn banked score  (/10000)",
-        "total_turn_score": "total turn score, banked if I stop  (/10000)",
-        "roll_count": "roll count  (/6)",
-        "dice_left": "dice left to roll  (/6)",
-        "flag_lange_strasse": "CAN complete Lange Strasse  (flag)",
-        "flag_talheim": "CAN complete Talheim  (flag)",
-        "flag_keep_any": "CAN keep any die  (flag)",
-        "score_me": "me: total score  (/10000)",
-        "strich_me": "me: has strich  (flag)",
-        "money_me": "me: money  (/1000)",
-        "score_p2": "next player: total score  (/10000)",
-        "strich_p2": "next player: has strich  (flag)",
-        "money_p2": "next player: money  (/1000)",
-        "score_p3": "last player: total score  (/10000)",
-        "strich_p3": "last player: has strich  (flag)",
-        "money_p3": "last player: money  (/1000)",
-        "turn_number": "turn number  (/20)",
-        "is_final_round": "is final round  (flag)",
-        "ends_turn": "this action ENDS my turn  (flag)",
-        "bias": "bias  (always 1.0)",
-        "dp_value": "DP turn-value of the action  (/1000)",
-        "group1": "kept triplet size for #1s",
-        "group2": "kept triplet size for #2s",
-        "group3": "kept triplet size for #3s",
-        "group4": "kept triplet size for #4s",
-        "group5": "kept triplet size for #5s",
-        "group6": "kept triplet size for #6s",
-        "loose1": "loose #1s  (/6)",
-        "loose5": "loose #5s  (/6)",
-        # use one hot here
-    }.get(key, key)
-
-
 def feature_names() -> list[str]:
-    # The vector an encoder builds is exactly the model's keys plus a trailing bias
-    # (see td._encode), so its labels follow the same order.
-    return [_pretty_name(key) for key in VARIANTS[TD_INTERP].keys + ["bias"]]
+    # Derive the matching key list from the variant name, e.g. td_small -> TD_SMALL_KEYS.
+    key_list_name = f"{TD_INTERP.upper()}_KEYS"
+    keys = getattr(td, key_list_name)
+    return [key.replace("_", " ") for key in keys + ["bias"]]
 
 
 def main() -> None:
-    if TD_INTERP not in VARIANTS:
-        print(f"Unknown TD model {TD_INTERP!r}; choose from {list(VARIANTS)}")
+    if TD_INTERP not in td.VARIANTS:
+        print(f"Unknown TD model {TD_INTERP!r}; choose from {list(td.VARIANTS)}")
         return
-    weights_path = VARIANTS[TD_INTERP].path
+    weights_path = td.VARIANTS[TD_INTERP].path
     if not weights_path.exists():
         print(f"No weights at {weights_path.name}, train: python -m algorithms.td {TD_INTERP}")
         return
