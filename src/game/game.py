@@ -204,7 +204,7 @@ class DiceSet:
         log(f"🧩 Total turn score: {self.total_turn_score} points")
 
 
-class TheGame:
+class Game:
     """Game controller for 3-player Lange Strasse: turn order, win condition,
     and the money economy."""
 

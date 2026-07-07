@@ -12,7 +12,7 @@ from collections import Counter
 import log as log_module
 from ai_player import AIPlayer
 from config import AIS_PLAY, SEED
-from game.game import Player, TheGame
+from game.game import Game, Player
 from game.rules import Action
 from game_state import StateExtractor
 from log import log
@@ -21,7 +21,7 @@ from log import log
 # --------------------------------------------------------------------------- #
 # The one game loop (AI seats decide for themselves, human seats are prompted)
 # --------------------------------------------------------------------------- #
-def run_game(game: TheGame) -> TheGame | None:
+def run_game(game: Game) -> Game | None:
     """Play ``game`` to completion. Returns the finished game (None if a human quit)."""
     while not game.game_over:
         game.advance_to_decision()
@@ -60,7 +60,7 @@ def run_matchup(n_games, algorithms):
             AIPlayer(f"AI Player {i + 1}", algorithm)
             for i, algorithm in enumerate(seat_algorithms)
         ]
-        game = run_game(TheGame(players))
+        game = run_game(Game(players))
         assert game is not None and game.winner is not None
         wins[seat_algorithms[game.players.index(game.winner)]] += 1
         for seat, algorithm in enumerate(seat_algorithms):
@@ -141,7 +141,7 @@ def print_rules():
     print("- Totale (no keepable dice at start): Pay 50¢ to each opponent")
 
 
-def take_human_turn(game: TheGame) -> bool:
+def take_human_turn(game: Game) -> bool:
     """Prompt the human for one command. Returns False if they quit."""
     player = game.current_player
     command = input(f"\n{player.name}, enter command: ").strip().lower()
@@ -195,7 +195,7 @@ def play_interactive(algorithms):
     log_module.VERBOSE = True  # a human is watching, whatever config.VERBOSE says
     players = choose_players(algorithms)
     print_rules()
-    run_game(TheGame(players))
+    run_game(Game(players))
 
 
 def play(n_games, algorithms):

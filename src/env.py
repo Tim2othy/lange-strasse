@@ -14,7 +14,7 @@ Forced turn-endings (dead roll / Totale) are auto-resolved so every observation
 handed back is a real decision point.
 """
 
-from game.game import TheGame
+from game.game import Game
 from game.rules import Action
 from game_state import GameState, StateExtractor
 
@@ -30,7 +30,7 @@ class LangeStrasseEnv:
     # ------------------------------------------------------------------ #
     def reset(self) -> GameState:
         """Start a fresh game and return the first decision-point observation."""
-        self.game = TheGame()  # plain players; actions come via step()
+        self.game = Game()  # plain players; actions come via step()
         self.game.advance_to_decision()
         return self.observe()
 
