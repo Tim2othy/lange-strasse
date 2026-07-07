@@ -21,6 +21,10 @@ But inter turn dynamics make it more complex
 6.  If you win by the 10th round you get 50ct from each player, so keep track of this, possibly play more riskily if not 10th round yet
 7. If the game ends and you have no "strich" you get 50ct from each player (even if you didn't win), so keep track and play more carefully if you have no strich, especially if game almost over
 8. If someone wins and you don't have 5000 points yet you must give the winner 50ct. so if below 5000 points, play differently, and if you close to winning and someone below 5000 points also take into consideration
+9. Second place pays the winner 50ct, third place pays 70ct: even when winning is out of reach, fighting for 2nd place is worth 20ct. So in the final round the target isn't just "overtake the leader" — overtaking the other non-winner also pays.
+10. Talheim auto-ends the turn: keeping pairs that complete it is an implicit "stop" decision. 500/1000 points but you lose the option to keep rolling — bad exactly when you must chase (final round, far behind).
+11. Super Strasse timing: a strasse completed on the 3rd+ roll pays double (100ct vs 50ct per player). With a 1 and/or 5 kept early, deliberately *not* completing the strasse immediately and going for the 3rd-roll completion can be worth it.
+12. Money already exchanged this game is sunk: it can never change which action is best (only future money matters). The money features are needed to predict value, but the model should learn they don't rank actions.
 
 ## Features
 

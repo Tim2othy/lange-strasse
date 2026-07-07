@@ -174,6 +174,8 @@ class StateExtractor:
         n = len(after.players)
         offset = (after.current_player_idx - after.starting_player_idx) % n
         feats["seat_offset"] = offset / (n - 1) if n > 1 else 0.0
+        for k in range(n):  # one-hot: seat order is categorical, not ordinal value
+            feats[f"seat{k}"] = 1.0 if offset == k else 0.0
 
         # --- Player features ---
         labels = ["me", "p2", "p3"]
@@ -209,6 +211,49 @@ class StateExtractor:
         feats["flag_lange_strasse"] = 1.0 if after.can_complete_lange_strasse else 0.0
         feats["flag_talheim"] = 1.0 if after.can_complete_talheim else 0.0
         feats["flag_keep_any"] = 1.0 if after.can_keep_any else 0.0
+
+        # --- Money-rule features: each mirrors one way money changes hands ---
+        # Prospective score: the mover's total if the turn ended right now
+        # (already banked when the turn ended, else banked + points at risk).
+        prospective = (
+            after.players[after.current_player_idx].total_score
+            + after.total_turn_score
+        )
+        opponents = [
+            after.players[(after.current_player_idx + i) % n] for i in range(1, n)
+        ]
+        opp_labels = [
+            labels[i] if i < len(labels) else f"p{i + 1}" for i in range(1, n)
+        ]
+        best_opp = max((p.total_score for p in opponents), default=0)
+
+        # Winning / placement (winner collects 50c + 70c).
+        feats["prospective_score"] = prospective / 10000.0
+        feats["points_to_win"] = max(0, 10000 - prospective) / 10000.0
+        feats["crosses_10k"] = 1.0 if prospective >= 10000 else 0.0
+        feats["score_best_opp"] = best_opp / 10000.0
+        feats["is_leading"] = 1.0 if prospective > best_opp else 0.0
+        for label, p in zip(opp_labels, opponents):
+            feats[f"gap_{label}"] = (prospective - p.total_score) / 10000.0
+
+        # Under-5000 penalty (50c to the winner).
+        feats["below_5000_me"] = 1.0 if prospective < 5000 else 0.0
+        feats["points_to_5000"] = max(0, 5000 - prospective) / 5000.0
+        for label, p in zip(opp_labels, opponents):
+            feats[f"below_5000_{label}"] = 1.0 if p.total_score < 5000 else 0.0
+        feats["opps_below_5000"] = (
+            sum(p.total_score < 5000 for p in opponents) / (n - 1) if n > 1 else 0.0
+        )
+
+        # Win-by-round-10 bonus (50c from each player) still attainable.
+        feats["round_bonus_alive"] = 1.0 if after.turn_number <= 10 else 0.0
+
+        # Completing the strasse on the next roll would be the 3rd+ roll: Super.
+        feats["flag_super_strasse"] = (
+            1.0
+            if after.can_complete_lange_strasse and after.roll_count >= 2
+            else 0.0
+        )
 
         return feats
 
