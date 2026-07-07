@@ -43,6 +43,74 @@ And reward function, in the end we only care about money but for intermediate re
 
 **One-line take:** decompose. Compute exactly the part you *can* (one turn), and *learn* only the part you can't (between-turn strategy). Start every learned piece as simple as possible (linear before deep). Fast strong baseline, every step debuggable, and each stage teaches exactly one RL idea.
 
+
+## Features
+
+### Direct Game state representation
+
+The GameState class and it's minimal feature representation:
+
+1. Dice information
+   ```
+    available_dice: List[int]
+    ```
+    values available to keep this roll, e.g. [1, 4], drops out because we evaluate the state after an action is taken at which point there are no available dice
+    ```
+    kept_groups: List[List[int]]  # Groups of kept dice
+   ```
+   becomes
+   `"group1", "group2", "group3", "group4", "group5", "group6"`
+   incodes groups using exponential function, if three are kept gives 1, four gives 2, five gives 4 and six gives 8, else 0
+
+   `"loose1", "loose5"` linear encoding of number of 1s or 5s keept
+
+
+2. Turn history
+   ```
+      turn_accumulated_score: int     -> "turn_accumulated": int, 
+      roll_count: int                 -> "roll_count": int,
+   ```
+
+4. Player information
+   ```
+      players: List[PlayerState]
+   ```
+   becomes
+   ```
+      "score_me": int, "strich_me": bool, "money_me": int,
+      "score_p2": int, "strich_p2": bool, "money_p2": int,
+      "score_p3": int, "strich_p3": bool, "money_p3": int,
+   ```
+4. Seating position
+   ```
+      current_player_idx: int
+      starting_player_idx: int
+   ```
+   becomes
+
+   ``` 
+      "seat_offset",
+   ```
+   starting player and own player id is formatted into one, loses no information
+
+5. Game context
+   ```
+    turn_number: int            -> "turn_number": int,
+   ```
+
+6. Extra is 
+   ```
+    "ends_turn"
+   ```
+   this is extra, it's not in game state, information depending on action not just game state, simple bool
+
+
+### Hand crafted features
+
+```
+is_final_round: bool        -> "is_final_round": bool,
+```
+
 ## Your questions
 
 - **TD-Gammon (TD + NN): yes, good fit — and the right thing to be excited about.** Backgammon and this game are cousins: stochastic, few choices per move, self-play-friendly. Great learning target. Just don't *start* there — start linear (see milestones).
