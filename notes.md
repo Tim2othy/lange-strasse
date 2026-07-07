@@ -133,13 +133,12 @@ Points ≠ money ≠ winning. Maximizing EV of *points* will misplay the *money*
 - Terminal reward = **final money** (the real objective). Let **TD bootstrapping** carry credit back through the turns — that's the whole point of TD, so you don't need hand-crafted intermediate rewards.
 - If you want a denser signal anyway, use **potential-based shaping** (Ng et al. 1999): shaping with a potential Φ(state) provably doesn't change the optimal policy. The DP turn-EV is a natural Φ. That's the principled version of your "use points as intermediate reward" idea.
 
-## Milestones (each one runs, and teaches one thing)
+## Steps
 
-0. ✅ heuristic + env + `simulate()` arena.
-1. **DP single-turn solver** → plug in as algo `"dp"`. Teaches Bellman / value iteration. Strong baseline immediately.
-2. **Situational stopping**: make the stop threshold depend on score gap / endgame (hand-tuned first). Teaches "optimal depends on the objective."
-3. **Linear TD(λ) value function over between-turn states, via self-play.** Reuses your `to_vector`. Linear = stable, fast, and the weights are *readable* (you can see what it learned). This is the real RL milestone.
-4. **Swap linear → small MLP** once the pipeline is proven. Now you're TD-Gammon.
+1. heuristic + env + `simulate()` arena. ✅
+2. **DP single-turn solver** → plug in as algo `"dp"`. Teaches Bellman / value iteration. Strong baseline immediately. ✅
+3. **Linear TD value function over between-turn states, via self-play.** Reuses your `to_vector`. Linear = stable, fast, and the weights are *readable* (you can see what it learned). ✅
+4. **Swap linear → small MLP** once the pipeline is proven.
 5. *(optional)* use the value net as the evaluator for shallow expectimax/MCTS lookahead.
 
 **Newbie warning I'd underline:** do **not** start at deep RL. That's where people drown in instability and un-debuggable training runs. Get a working self-play TD loop with a *linear* model and good features first; deep is a drop-in upgrade afterward.
