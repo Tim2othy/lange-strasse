@@ -49,7 +49,7 @@ DP_SCALE = 1000.0    # normalizer for the DP turn-value feature
 # situation flags, all three players, the turn-over flag -- plus "dp_value", the DP
 # solver's turn-value (an extra atom; see _EXTRA_ATOMS). "dp_value" is just a key, so
 # add it to / drop it from any model's list to compare with vs. without the solver.
-_TD_FULL_KEYS = [
+TD_FULL_KEYS = [
     "kept1", "kept2", "kept3", "kept4", "kept5", "kept6",
     "grouped1", "grouped5",
     "current_set_score", "turn_accumulated", "total_turn_score", "roll_count",
@@ -67,7 +67,7 @@ _TD_FULL_KEYS = [
 # Anything constant across a turn's actions (e.g. is_final_round) is useless to a
 # linear value and left out. Money is a closed zero-sum economy, so the three
 # balances span only two dimensions; this model keeps just my own.
-_TD_MIN_KEYS = [
+TD_MIN_KEYS = [
     "group1", "group2", "group3", "group4", "group5", "group6",
     "loose1", "loose5",
     "turn_accumulated",
@@ -97,9 +97,9 @@ GAME_KEYS = [
 
     "ends_turn",
 ]
-_TD_SMALL_KEYS = GAME_KEYS + ["dp_value"]
+TD_SMALL_KEYS = GAME_KEYS + ["dp_value"]
 
-_TD_DP_KEYS = ["dp_value"]
+TD_DP_KEYS = ["dp_value"]
 # fmt: on
 
 
@@ -134,7 +134,7 @@ def _encode(keys: list[str]):
 
 
 # Full-model encoder, also exported as ``td_features`` for hand_eval / interp.
-td_features = _encode(_TD_FULL_KEYS)
+td_features = _encode(TD_FULL_KEYS)
 
 
 class LinearTD:
@@ -206,10 +206,10 @@ class _Variant:
 # dispatch string all follow automatically. Add a line here and the model just works
 # everywhere (config ALGOS, ai_player, interp); no other edits.
 _MODEL_KEYS = {
-    "td_full": _TD_FULL_KEYS,
-    "td_small": _TD_SMALL_KEYS,
-    "td_min": _TD_MIN_KEYS,
-    "td_dp": _TD_DP_KEYS,
+    "td_full": TD_FULL_KEYS,
+    "td_small": TD_SMALL_KEYS,
+    "td_min": TD_MIN_KEYS,
+    "td_dp": TD_DP_KEYS,
 }
 
 VARIANTS = {name: _Variant(name, keys) for name, keys in _MODEL_KEYS.items()}
